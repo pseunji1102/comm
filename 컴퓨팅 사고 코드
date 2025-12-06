@@ -1,0 +1,1996 @@
+import pygame
+import random
+import sys
+import time
+from dataclasses import dataclass
+
+pygame.init()
+pygame.mixer.init()
+
+# -------------------------
+# 기본 설정
+# -------------------------
+GAME_W, GAME_H = 480, 800   # 논리적인 게임 화면 (세로)
+window = pygame.display.set_mode((GAME_W, GAME_H), pygame.RESIZABLE)
+pygame.display.set_caption("에녹이 키우기")
+
+# 실제 그리는 Surface (480x800 고정)
+screen = pygame.Surface((GAME_W, GAME_H))
+
+clock = pygame.time.Clock()
+FPS = 60
+
+# -------------------------
+# ★ 한글 폰트 파일
+# -------------------------
+KOREAN_FONT_FILE = "NanumGothic.otf"
+
+# -------------------------
+# ★ 미니게임 아이콘 기본 크기
+# -------------------------
+MINI_BTN_BASE_SIZE = 130
+
+# -------------------------
+# ★ 메인 게임용 이미지 파일 이름
+# -------------------------
+START_BG_FILE = "background.png"
+TUTORIAL_BG_FILE = "tutorial_bg.jpg"
+GAME_BG_FILE = "background_start.jpg"
+TUTORIAL_IMG_FILE = "tutorial_text.png"  # 현재는 사용하지 않지만 남겨둠
+
+STORY_PHOTO_FILES = [
+    "story1.png",
+    "story2.png",
+    "story3.png",
+]
+
+# 본게임 에녹이 사진 (기본/성공/실패)
+GAME_PHOTO_DEFAULT_FILE = "enoch_default.png"   # 기본 에녹이
+GAME_PHOTO_SUCCESS_FILE = "enoch_success.png"   # 미니게임 성공 후 에녹이
+GAME_PHOTO_FAIL_FILE    = "enoch_fail.png"      # 미니게임 실패 후 에녹이
+
+# 잠자는 에녹이
+SLEEP_PHOTO_FILE = "sleep.png"
+
+# 배경
+MORNING_BG_FILE = "bg_morning.jpg"
+NOON_BG_FILE    = "bg_noon.jpg"
+EVENING_BG_FILE = "bg_evening.jpg"
+
+# ★ 지능 퀴즈 전용 배경, 엔딩 전용 배경
+QUIZ_BG_FILE   = "quiz_bg.jpg"     # 지능 미니게임(퀴즈) 배경
+ENDING_BG_FILE = "ending_bg.jpg"   # 엔딩 1, 2페이지 공통 배경
+
+# 엔딩에서 사용하는 에녹이 사진
+ENDING_BASE_IMG_FILE        = "ending_base.png"   # 엔딩 1페이지(종강했다) 에녹이
+
+# 새 엔딩 분기용 이미지 (원하는 파일명으로 변경해서 사용)
+ENDING_A_DEFAULT_IMG_FILE   = "ending_A_default.png"   # A 기본 엔딩
+ENDING_A_HEALTH_IMG_FILE    = "ending_A_health.png"    # A 체력 엔딩
+ENDING_A_INTEL_IMG_FILE     = "ending_A_intel.png"     # A 지능 엔딩
+ENDING_A_APPEAR_IMG_FILE    = "ending_A_appear.png"    # A 외모 엔딩
+ENDING_B_IMG_FILE           = "ending_B.png"           # B 엔딩 (단일)
+ENDING_F_DEFAULT_IMG_FILE   = "ending_F_default.png"   # F 기본 엔딩
+ENDING_F_HUNGER_IMG_FILE    = "ending_F_hunger.png"    # F 허기 엔딩 (포만이 제일 높을 때)
+
+# 미니게임 아이콘 (체력, 지능, 외모, 포만)
+MINI_ICON_FILES = [
+    "mini_health.png",
+    "mini_intel.png",
+    "mini_look.png",
+    "mini_full.png",
+]
+
+# -------------------------
+# ★ 스토리/본게임 에녹 사진 위치 / 크기 조절용 설정값
+# -------------------------
+# 스토리 화면에서 에녹 사진
+STORY_IMG_MAX_W_RATIO = 0.95
+STORY_IMG_MAX_H_RATIO = 0.55
+STORY_IMG_CENTER_X_RATIO = 0.5
+STORY_IMG_CENTER_Y_RATIO = 0.38
+
+# 본게임에서 에녹 사진 (기본/성공/실패 공통)
+GAME_IMG_MAX_W_RATIO = 0.95
+GAME_IMG_MAX_H_RATIO = 0.55
+GAME_IMG_CENTER_X_RATIO = 0.5
+GAME_IMG_CENTER_Y_RATIO = 0.32
+
+# 엔딩(종강/성적 화면)에서 에녹 사진 (엔딩용 이미지들 공통)
+ENDING_IMG_MAX_W_RATIO = 0.95
+ENDING_IMG_MAX_H_RATIO = 0.55
+ENDING_IMG_CENTER_X_RATIO = 0.5
+ENDING_IMG_CENTER_Y_RATIO = 0.32
+
+# -------------------------
+# ★ 체력 미니게임(달리기) 이미지 파일
+# -------------------------
+RUN_BG_FILE = "run background.png"
+RUN_PLAYER_FILE_1 = "run player.png"
+RUN_PLAYER_FILE_2 = "run player2.png"
+
+# -------------------------
+# ★ 외모 미니게임(카드 짝맞추기) 설정
+# -------------------------
+CARDGAME_ROWS, CARDGAME_COLS = 4, 5
+CARDGAME_CARD_PADDING = 10
+CARDGAME_TOP_MARGIN = 120
+CARDGAME_BG_COLOR = (30, 30, 30)
+CARDGAME_CARD_COLOR = (200, 200, 200)
+CARDGAME_BACK_COLOR = (50, 120, 200)
+CARDGAME_BORDER_COLOR = (0, 0, 0)
+CARDGAME_REVEAL_DELAY_MS = 700
+CARDGAME_MAX_ATTEMPTS = 22  # 22번만 가능, 22번째에 맞추면 성공
+CARDGAME_ASPECT_RATIO = 1.3
+CARDGAME_IMAGE_PATTERN = "card{}.jpg"
+CARDGAME_NUM_PAIRS = (CARDGAME_ROWS * CARDGAME_COLS) // 2
+CARDGAME_IMAGE_ROTATIONS = [0, 0, 0, -90, -90, 0, 0, 0, 0, 0]
+
+cardgame_images = None
+
+# -------------------------
+# ★ 포만 미니게임(음식 받아먹기) 이미지 파일
+# -------------------------
+EAT_PLAYER_IMAGE_FILE = "enoch food.png"
+EAT_FOOD_IMAGE_FILES = ["pizza.png", "cola.png", "chicken.png"]
+EAT_OBSTACLE_IMAGE_FILE = "book.png"
+
+# -------------------------
+# 지능 퀴즈 미니게임용 퀴즈 데이터
+# -------------------------
+quizzes = [
+    ("컴퓨팅 사고란 무엇인가?",
+     ["컴퓨터 과학 개념을 활용해 문제를 해결하는 사고방식",
+      "컴퓨터를 이해하는 사고방식"], 0),
+
+    ("에녹이가 운동장을 50km/h의 속도로 달리고 있다. 30바퀴를 돌기 위해서는 어떤 신발을 신어야 할까?",
+     ["크록스 슬리퍼", "나이키 알파플라이3"], 1),
+
+    ("문제를 작은 단위로 나누어 해결하는 과정은?",
+     ["분해", "분리"], 0),
+
+    ("문제 해결 과정에서 패턴을 찾는 활동은?",
+     ["패턴 추측", "패턴 인식"], 1),
+
+    ("알고리즘이란 무엇인가?",
+     ["문제 해결 절차", "문제 만들기 방법"], 0),
+
+    ("불필요한 정보를 제거하는 과정은?",
+     ["알고리즘", "추상화"], 1),
+
+    ("에녹이의 생일은?",
+     ["11/13", "5/4"], 0),
+
+    ("컴퓨팅 사고의 예로 올바른 것은?",
+     ["요리 레시피를 단계별로 정리", "요리된 음식 먹기"], 0),
+
+    ("파이썬 반복문은?",
+     ["for문", "to문"], 0),
+
+    ("에녹이의 핸드폰이 아이폰 16프로 일 때 에녹이가 가장 좋아하는 음식은?",
+     ["브로콜리", "한우 안심"], 1),
+
+    ("에녹이가 길 가다가 500원을 주웠다. 이 때 에녹이의 지갑에 5만원이 있었다면 에녹이의 키는?",
+     ["175", "178"], 1),
+
+    ("에녹이가 세탁실에서 나오다가 바닥있는 양말 한짝을 주웠다. 이 때 에녹이이가 희망하는 과는?",
+     ["생명과학기술학부", "철학과"], 0),
+
+    ("디버깅(Debugging)이란?",
+     ["오류를 찾고 수정하는 과정", "컴퓨터 장비 교체"], 0),
+
+    ("에녹이가 수학문제 10개중 7개를 틀렸다. 이때 사용한 샤프심 굵기가 0.5mm였다면 에녹이의 MBTI는?",
+     ["ENFJ", "ENTP"], 1),
+
+    ("모듈화(Modularity)란?",
+     ["큰 시스템을 작은 부분으로 나누는 것", "코드를 한 곳에 몰아쓰기"], 0)
+]
+
+# 사용된 퀴즈 인덱스 (게임 완전히 끝날 때까지 중복 안 나오게 관리)
+used_quiz_indices = set()
+
+# -------------------------
+# 폰트
+# -------------------------
+def load_font(size):
+    try:
+        return pygame.font.Font(KOREAN_FONT_FILE, size)
+    except Exception as e:
+        print(f"[경고] 폰트 로드 실패: {KOREAN_FONT_FILE} -> {e}")
+        return pygame.font.Font(None, size)
+
+FONT = load_font(60)
+TUTORIAL_FONT = load_font(40)
+STORY_FONT = load_font(26)
+NEXT_FONT = load_font(28)
+MINI_FONT = load_font(24)
+STAT_FONT = load_font(28)
+DAY_FONT = load_font(22)
+
+# -------------------------
+# 이미지 로드 유틸
+# -------------------------
+def load_and_scale(path, size):
+    try:
+        img = pygame.image.load(path).convert_alpha()
+        return pygame.transform.smoothscale(img, size)
+    except Exception as e:
+        print(f"[경고] 이미지 로드 실패: {path} -> {e}")
+        surf = pygame.Surface(size, pygame.SRCALPHA)
+        surf.fill((0, 0, 0, 0))
+        return surf
+
+def load_keep_aspect(path, target_size):
+    tw, th = target_size
+    try:
+        img = pygame.image.load(path).convert_alpha()
+        w, h = img.get_size()
+        if w == 0 or h == 0:
+            raise ValueError("image has zero size")
+        scale = min(tw / w, th / h)
+        nw, nh = int(w * scale), int(h * scale)
+        return pygame.transform.smoothscale(img, (nw, nh))
+    except Exception as e:
+        print(f"[경고] 이미지 로드 실패: {path} -> {e}")
+        surf = pygame.Surface(target_size, pygame.SRCALPHA)
+        surf.fill((0, 0, 0, 0))
+        return surf
+
+# -------------------------
+# 전역 이미지 Surface
+# -------------------------
+background_start = None
+background_tutorial = None
+background_game_default = None
+background_morning = None
+background_noon = None
+background_evening = None
+
+background_quiz = None
+background_ending = None
+
+tutorial_img = None
+story_photo_imgs = []
+
+game_photo_default_img = None
+game_photo_success_img = None
+game_photo_fail_img = None
+sleeping_img = None
+
+ending_base_img = None
+ending_A_default_img = None
+ending_A_health_img = None
+ending_A_intel_img = None
+ending_A_appear_img = None
+ending_B_img = None
+ending_F_default_img = None
+ending_F_hunger_img = None
+
+mini_icon_imgs = []
+
+# -------------------------
+# 카드 데이터 클래스 (외모 미니게임)
+# -------------------------
+@dataclass
+class Card:
+    value: int
+    rect: pygame.Rect
+    revealed: bool = False
+    matched: bool = False
+
+# -------------------------
+# 외모 미니게임: 카드 이미지 로드
+# -------------------------
+def load_cardgame_images():
+    global cardgame_images
+    if cardgame_images is not None:
+        return cardgame_images
+
+    if len(CARDGAME_IMAGE_ROTATIONS) != CARDGAME_NUM_PAIRS:
+        print(f"[에러] CARDGAME_IMAGE_ROTATIONS 길이({len(CARDGAME_IMAGE_ROTATIONS)})가 "
+              f"쌍 개수({CARDGAME_NUM_PAIRS})와 다릅니다.")
+        pygame.quit()
+        sys.exit()
+
+    imgs = []
+    for i in range(CARDGAME_NUM_PAIRS):
+        filename = CARDGAME_IMAGE_PATTERN.format(i)
+        try:
+            img = pygame.image.load(filename).convert_alpha()
+        except FileNotFoundError:
+            print(f"[에러] 카드 이미지 파일을 찾을 수 없습니다: {filename}")
+            pygame.quit()
+            sys.exit()
+        angle = CARDGAME_IMAGE_ROTATIONS[i]
+        if angle % 360 != 0:
+            img = pygame.transform.rotate(img, angle)
+        imgs.append(img)
+
+    cardgame_images = imgs
+    return cardgame_images
+
+# -------------------------
+# 외모 미니게임: 카드 생성
+# -------------------------
+def create_cardgame_cards(rows, cols, area_rect):
+    total = rows * cols
+    assert total % 2 == 0, "카드 수는 짝수여야 합니다."
+
+    values = list(range(total // 2)) * 2
+    random.shuffle(values)
+
+    cards = []
+
+    total_vertical_padding = (rows + 1) * CARDGAME_CARD_PADDING
+    available_height = area_rect.height - total_vertical_padding
+    card_h = available_height // rows
+
+    card_w = int(card_h / CARDGAME_ASPECT_RATIO)
+
+    total_width_needed = cols * card_w + (cols + 1) * CARDGAME_CARD_PADDING
+    start_x = area_rect.x + (area_rect.width - total_width_needed) // 2
+    start_y = area_rect.y
+
+    i = 0
+    for r in range(rows):
+        for c in range(cols):
+            x = start_x + CARDGAME_CARD_PADDING + c * (card_w + CARDGAME_CARD_PADDING)
+            y = start_y + CARDGAME_CARD_PADDING + r * (card_h + CARDGAME_CARD_PADDING)
+            rect = pygame.Rect(x, y, card_w, card_h)
+            cards.append(Card(value=values[i], rect=rect))
+            i += 1
+    return cards
+
+# -------------------------
+# 외모 미니게임: 카드 그리기
+# -------------------------
+def draw_cardgame_cards(cards, surface):
+    imgs = load_cardgame_images()
+    for card in cards:
+        if card.revealed or card.matched:
+            pygame.draw.rect(surface, CARDGAME_CARD_COLOR, card.rect)
+            img = imgs[card.value]
+            img_w, img_h = img.get_size()
+            scale = min(card.rect.width / img_w, card.rect.height / img_h)
+            new_w = int(img_w * scale)
+            new_h = int(img_h * scale)
+            img_scaled = pygame.transform.smoothscale(img, (new_w, new_h))
+            x = card.rect.x + (card.rect.width - new_w) // 2
+            y = card.rect.y + (card.rect.height - new_h) // 2
+            surface.blit(img_scaled, (x, y))
+        else:
+            pygame.draw.rect(surface, CARDGAME_BACK_COLOR, card.rect)
+
+        pygame.draw.rect(surface, CARDGAME_BORDER_COLOR, card.rect, 2)
+
+def find_cardgame_card_at(cards, pos):
+    for card in cards:
+        if card.rect.collidepoint(pos) and not card.matched:
+            return card
+    return None
+
+# -------------------------
+# 외모 미니게임 실행
+# -------------------------
+def play_appearance_minigame():
+    global window
+    load_cardgame_images()
+
+    prev_window_size = window.get_size()
+    prev_caption = pygame.display.get_caption()
+
+    info = pygame.display.Info()
+    full_w, full_h = info.current_w, info.current_h
+    window = pygame.display.set_mode((full_w, full_h))
+    pygame.display.set_caption("외모 미니게임 - 카드 짝맞추기")
+
+    area = pygame.Rect(
+        20,
+        CARDGAME_TOP_MARGIN,
+        full_w - 40,
+        full_h - CARDGAME_TOP_MARGIN - 20
+    )
+    cards = create_cardgame_cards(CARDGAME_ROWS, CARDGAME_COLS, area)
+
+    first_card = None
+    second_card = None
+    last_reveal_time = 0
+    attempts = 0
+    matches = 0
+    game_over = False
+    game_result = None
+
+    card_font = load_font(48)
+    small_font = load_font(28)
+
+    mini_running = True
+    while mini_running:
+        dt = clock.tick(FPS)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+            elif event.type == pygame.KEYDOWN:
+                if game_over:
+                    mini_running = False
+
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if game_over:
+                    mini_running = False
+                else:
+                    if attempts >= CARDGAME_MAX_ATTEMPTS:
+                        continue
+                    if first_card and second_card:
+                        pass
+                    else:
+                        clicked = find_cardgame_card_at(cards, event.pos)
+                        if clicked and not clicked.revealed:
+                            clicked.revealed = True
+                            if not first_card:
+                                first_card = clicked
+                            else:
+                                second_card = clicked
+                                attempts += 1
+                                last_reveal_time = pygame.time.get_ticks()
+
+        # 매치 판정
+        if (not game_over and
+            first_card and second_card and
+            not first_card.matched and not second_card.matched):
+            now = pygame.time.get_ticks()
+            if now - last_reveal_time >= CARDGAME_REVEAL_DELAY_MS:
+                if first_card.value == second_card.value:
+                    first_card.matched = True
+                    second_card.matched = True
+                    matches += 1
+                else:
+                    first_card.revealed = False
+                    second_card.revealed = False
+
+                first_card = None
+                second_card = None
+                last_reveal_time = 0
+
+        # 성공/실패 판정
+        if not game_over:
+            if matches == CARDGAME_NUM_PAIRS and attempts <= CARDGAME_MAX_ATTEMPTS:
+                game_over = True
+                game_result = "success"
+            elif attempts == CARDGAME_MAX_ATTEMPTS and matches < CARDGAME_NUM_PAIRS:
+                game_over = True
+                game_result = "fail"
+                for card in cards:
+                    card.revealed = True
+
+        window.fill(CARDGAME_BG_COLOR)
+
+        info_text = f"시도: {attempts}/{CARDGAME_MAX_ATTEMPTS}    매치: {matches}/{CARDGAME_NUM_PAIRS}"
+        info_surf = small_font.render(info_text, True, (220, 220, 220))
+        window.blit(info_surf, (20, 20))
+
+        draw_cardgame_cards(cards, window)
+
+        if game_over and game_result is not None:
+            if game_result == "success":
+                msg = "성공!"
+                color = (255, 230, 100)
+            else:
+                msg = "실패!"
+                color = (255, 100, 100)
+
+            result_txt = card_font.render(msg, True, color)
+            result_rect = result_txt.get_rect(center=(full_w // 2, full_h // 2))
+            window.blit(result_txt, result_rect)
+
+            tip = small_font.render("클릭하여 돌아가기", True, (230, 230, 230))
+            tip_rect = tip.get_rect(center=(full_w // 2, full_h // 2 + 60))
+            window.blit(tip, tip_rect)
+
+        pygame.display.flip()
+
+    window = pygame.display.set_mode(prev_window_size, pygame.RESIZABLE)
+    pygame.display.set_caption(prev_caption[0])
+
+    reload_assets_for_size(GAME_W, GAME_H)
+    update_button_positions(GAME_W, GAME_H)
+
+    return game_result
+
+# -------------------------
+# 지능 퀴즈 미니게임 실행
+# -------------------------
+def play_intelligence_quiz_minigame():
+    global window, used_quiz_indices
+
+    prev_window_size = window.get_size()
+    prev_caption = pygame.display.get_caption()
+
+    info = pygame.display.Info()
+    full_w, full_h = info.current_w, info.current_h
+    window = pygame.display.set_mode((full_w, full_h))
+    pygame.display.set_caption("지능 미니게임 - 퀴즈")
+
+    BG_COLOR = (30, 30, 30)
+    WHITE = (255, 255, 255)
+    title_font = load_font(42)
+    quiz_font = load_font(32)
+    small_font = load_font(26)
+
+    # 아직 나오지 않은 퀴즈 인덱스만 사용
+    remaining_indices = [i for i in range(len(quizzes)) if i not in used_quiz_indices]
+
+    # 모든 퀴즈를 다 사용했다면, 안내만 보여 주고 종료
+    if not remaining_indices:
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN or (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1):
+                    running = False
+
+            if background_quiz is not None:
+                bg = pygame.transform.scale(background_quiz, (full_w, full_h))
+                window.blit(bg, (0, 0))
+            else:
+                window.fill(BG_COLOR)
+
+            msg1 = title_font.render("모든 퀴즈를 다 풀었어요!", True, WHITE)
+            msg2 = small_font.render("클릭하여 돌아가기", True, WHITE)
+            window.blit(msg1, msg1.get_rect(center=(full_w // 2, int(full_h * 0.45))))
+            window.blit(msg2, msg2.get_rect(center=(full_w // 2, int(full_h * 0.6))))
+
+            pygame.display.flip()
+            clock.tick(FPS)
+
+        window = pygame.display.set_mode(prev_window_size, pygame.RESIZABLE)
+        pygame.display.set_caption(prev_caption[0])
+
+        reload_assets_for_size(GAME_W, GAME_H)
+        update_button_positions(GAME_W, GAME_H)
+
+        return None
+
+    # 아직 안 나온 퀴즈 중 하나 선택
+    q_index = random.choice(remaining_indices)
+    used_quiz_indices.add(q_index)
+    question, options, answer = quizzes[q_index]
+
+    BOX_SIZE = 40
+    box1_rect = pygame.Rect(50, int(full_h * 0.45), BOX_SIZE, BOX_SIZE)
+    box2_rect = pygame.Rect(50, int(full_h * 0.55), BOX_SIZE, BOX_SIZE)
+
+    running = True
+    result = None
+
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+            if event.type == pygame.KEYDOWN:
+                if result is None:
+                    if event.key == pygame.K_1:
+                        result = (0 == answer)
+                    elif event.key == pygame.K_2:
+                        result = (1 == answer)
+                else:
+                    running = False
+
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if result is None:
+                    if box1_rect.collidepoint(event.pos):
+                        result = (0 == answer)
+                    elif box2_rect.collidepoint(event.pos):
+                        result = (1 == answer)
+                else:
+                    running = False
+
+        # 배경
+        if background_quiz is not None:
+            bg = pygame.transform.scale(background_quiz, (full_w, full_h))
+            window.blit(bg, (0, 0))
+        else:
+            window.fill(BG_COLOR)
+
+        title_surf = title_font.render("풀면 돌고래보다는 똑똑해지는 퀴즈", True, WHITE)
+        title_rect = title_surf.get_rect(center=(full_w // 2, int(full_h * 0.15)))
+        window.blit(title_surf, title_rect)
+
+        question_surf = quiz_font.render(question, True, WHITE)
+        q_rect = question_surf.get_rect(midleft=(50, int(full_h * 0.3)))
+        window.blit(question_surf, q_rect)
+
+        pygame.draw.rect(window, WHITE, box1_rect, 3)
+        pygame.draw.rect(window, WHITE, box2_rect, 3)
+
+        opt1_surf = quiz_font.render("1) " + options[0], True, WHITE)
+        opt2_surf = quiz_font.render("2) " + options[1], True, WHITE)
+        window.blit(opt1_surf, (box1_rect.right + 20, box1_rect.y))
+        window.blit(opt2_surf, (box2_rect.right + 20, box2_rect.y))
+
+        if result is True:
+            msg = "정답! 지능 +4"
+            msg_surf = small_font.render(msg, True, WHITE)
+            msg_rect = msg_surf.get_rect(center=(full_w // 2, int(full_h * 0.8)))
+            window.blit(msg_surf, msg_rect)
+        elif result is False:
+            msg = "오답! 지능 +2"
+            msg_surf = small_font.render(msg, True, WHITE)
+            msg_rect = msg_surf.get_rect(center=(full_w // 2, int(full_h * 0.8)))
+            window.blit(msg_surf, msg_rect)
+
+        if result is None:
+            tip = ""
+        else:
+            tip = "클릭하여 돌아가기"
+        tip_surf = small_font.render(tip, True, WHITE)
+        tip_rect = tip_surf.get_rect(center=(full_w // 2, int(full_h * 0.9)))
+        window.blit(tip_surf, tip_rect)
+
+        pygame.display.flip()
+        clock.tick(FPS)
+
+    window = pygame.display.set_mode(prev_window_size, pygame.RESIZABLE)
+    pygame.display.set_caption(prev_caption[0])
+
+    reload_assets_for_size(GAME_W, GAME_H)
+    update_button_positions(GAME_W, GAME_H)
+
+    if result is True:
+        return "success"
+    elif result is False:
+        return "fail"
+    else:
+        return None
+
+# -------------------------
+# 포만 미니게임 실행 (음식 받아먹기)
+# -------------------------
+def play_fullness_minigame():
+    global window
+
+    prev_window_size = window.get_size()
+    prev_caption = pygame.display.get_caption()
+
+    info = pygame.display.Info()
+    full_w, full_h = info.current_w, info.current_h
+    window = pygame.display.set_mode((full_w, full_h))
+    pygame.display.set_caption("포만 미니게임 - 음식 받아먹기")
+
+    SCREEN_W, SCREEN_H = full_w, full_h
+    FPS_LOCAL = FPS
+
+    GAME_TIME_SEC = 20          # 20초
+    INITIAL_HEARTS = 3
+
+    FOOD_PROB = 0.7             # 음식 70%, 책 30%
+    FOOD_SCORES = [1, 2, 3]
+    ITEM_FALL_SPEED_MIN = 5
+    ITEM_FALL_SPEED_MAX = 9
+    ITEM_SPAWN_INTERVAL = 220   # 0.22초마다 스폰
+
+    WHITE = (255, 255, 255)
+    BLACK = (0, 0, 0)
+    BG_COLOR = (200, 230, 255)
+    RED = (220, 60, 60)
+    GRAY = (180, 180, 180)
+
+    def draw_text(surface, text, size, x, y, color=BLACK, center=False):
+        font = load_font(size)
+        rend = font.render(text, True, color)
+        rrect = rend.get_rect()
+        if center:
+            rrect.center = (x, y)
+        else:
+            rrect.topleft = (x, y)
+        surface.blit(rend, rrect)
+
+    def load_image(path, target_height=None):
+        if not path:
+            return None
+        try:
+            img = pygame.image.load(path).convert_alpha()
+            if target_height is not None:
+                w, h = img.get_size()
+                if h > 0:
+                    scale = target_height / h
+                    new_size = (int(w * scale), int(h * scale))
+                    img = pygame.transform.smoothscale(img, new_size)
+            return img
+        except Exception as e:
+            print(f"이미지 로드 실패: {path} ({e})")
+            return None
+
+    class Player(pygame.sprite.Sprite):
+        def __init__(self, x, y, image_surface=None):
+            super().__init__()
+            self.width = 100
+            self.height = 100
+
+            if image_surface is not None:
+                self.image = image_surface
+            else:
+                self.image = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+                pygame.draw.ellipse(self.image, (255, 210, 120), (0, 0, self.width, self.height))
+                pygame.draw.circle(self.image, BLACK, (int(self.width * 0.35), int(self.height * 0.35)), 6)
+                pygame.draw.circle(self.image, BLACK, (int(self.width * 0.65), int(self.height * 0.35)), 6)
+
+            self.rect = self.image.get_rect(center=(x, y))
+            self.speed = 9
+
+        def update(self, keys):
+            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                self.rect.x -= self.speed
+            if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                self.rect.x += self.speed
+            self.rect.x = max(0, min(self.rect.x, SCREEN_W - self.rect.width))
+
+    class FallingItem(pygame.sprite.Sprite):
+        def __init__(self, x, kind, food_images, obstacle_image, food_index=None):
+            super().__init__()
+            self.kind = kind
+            self.size = 40
+            self.score = 0
+
+            if self.kind == "food":
+                if food_index is None:
+                    self.food_index = 0
+                else:
+                    self.food_index = food_index
+
+                self.score = FOOD_SCORES[self.food_index]
+
+                img = None
+                if 0 <= self.food_index < len(food_images):
+                    img = food_images[self.food_index]
+
+                if img is not None:
+                    self.image = img
+                else:
+                    self.image = pygame.Surface((self.size, self.size), pygame.SRCALPHA)
+                    base_colors = [
+                        (180, 255, 200),
+                        (255, 220, 150),
+                        (255, 150, 150),
+                    ]
+                    color = base_colors[self.food_index % len(base_colors)]
+                    pygame.draw.circle(self.image, color,
+                                       (self.size // 2, self.size // 2), self.size // 2)
+                    pygame.draw.circle(self.image, BLACK,
+                                       (int(self.size * 0.32), int(self.size * 0.32)), 3)
+            else:
+                self.score = 0
+                if obstacle_image is not None:
+                    self.image = obstacle_image
+                else:
+                    self.image = pygame.Surface((self.size, self.size), pygame.SRCALPHA)
+                    pygame.draw.rect(self.image, GRAY, (0, 0, self.size, self.size))
+                    pygame.draw.line(self.image, BLACK, (5, 5),
+                                     (self.size - 5, self.size - 5), 2)
+                    pygame.draw.line(self.image, BLACK, (self.size - 5, 5),
+                                     (5, self.size - 5), 2)
+
+            self.rect = self.image.get_rect(midtop=(x, -self.image.get_height()))
+            self.speed = random.randint(ITEM_FALL_SPEED_MIN, ITEM_FALL_SPEED_MAX)
+
+        def update(self):
+            self.rect.y += self.speed
+            if self.rect.top > SCREEN_H:
+                self.kill()
+
+    player_img = load_image(EAT_PLAYER_IMAGE_FILE, target_height=130)
+    food_images = [load_image(path, target_height=60) for path in EAT_FOOD_IMAGE_FILES]
+    obstacle_image = load_image(EAT_OBSTACLE_IMAGE_FILE, target_height=60)
+
+    all_sprites = pygame.sprite.Group()
+    items = pygame.sprite.Group()
+
+    player = Player(SCREEN_W // 2, SCREEN_H - 100, player_img)
+    all_sprites.add(player)
+
+    hearts = INITIAL_HEARTS
+    score = 0
+
+    SPAWN_EVENT = pygame.USEREVENT + 2
+    pygame.time.set_timer(SPAWN_EVENT, ITEM_SPAWN_INTERVAL)
+
+    running = True
+    game_over = False
+    game_result = None
+    show_message_timer = 0
+
+    def spawn_item():
+        x = random.randint(30, SCREEN_W - 30)
+        if random.random() < FOOD_PROB:
+            kind = "food"
+            food_index = random.randint(0, 2)
+        else:
+            kind = "bad"
+            food_index = None
+        it = FallingItem(x, kind, food_images, obstacle_image, food_index)
+        items.add(it)
+        all_sprites.add(it)
+
+    # 시작 안내 화면
+    show_start = True
+    while show_start:
+        clock.tick(FPS_LOCAL)
+        for evt in pygame.event.get():
+            if evt.type == pygame.QUIT:
+                pygame.time.set_timer(SPAWN_EVENT, 0)
+                pygame.quit()
+                sys.exit()
+            if evt.type == pygame.KEYDOWN:
+                show_start = False
+
+        window.fill(BG_COLOR)
+        draw_text(window, "", 40, SCREEN_W // 2, SCREEN_H // 3, center=True)
+        draw_text(window, "← → 로 이동", 26,
+                  SCREEN_W // 2, SCREEN_H // 2, center=True)
+        draw_text(window, "치킨 3점   콜라 2점   피자 1점", 22,
+                  SCREEN_W // 2, SCREEN_H // 2 + 40, center=True)
+        draw_text(window, "책을 먹으면 하트 -1", 20,
+                  SCREEN_W // 2, SCREEN_H // 2 + 80, center=True)
+        draw_text(window, "50점이 목표! ", 20,
+                  SCREEN_W // 2, SCREEN_H // 2 + 120, center=True)
+        draw_text(window, "아무 키를 눌러 시작합니다.", 18,
+                  SCREEN_W // 2, SCREEN_H - 80, center=True)
+        pygame.display.flip()
+
+    start_ticks = pygame.time.get_ticks()
+
+    while running:
+        dt = clock.tick(FPS_LOCAL)
+        elapsed_ms = pygame.time.get_ticks() - start_ticks
+        elapsed_sec = elapsed_ms // 1000
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.time.set_timer(SPAWN_EVENT, 0)
+                pygame.quit()
+                sys.exit()
+            elif event.type == SPAWN_EVENT and not game_over:
+                spawn_item()
+            elif event.type == pygame.KEYDOWN:
+                if game_over:
+                    running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if game_over:
+                    running = False
+
+        if not game_over:
+            keys = pygame.key.get_pressed()
+            player.update(keys)
+            items.update()
+
+            collided = pygame.sprite.spritecollide(player, items, dokill=True)
+            for it in collided:
+                if it.kind == "food":
+                    score += it.score
+                else:
+                    hearts -= 1
+                    show_message_timer = 120
+
+            if hearts <= 0:
+                game_over = True
+                game_result = "fail"
+            elif elapsed_sec >= GAME_TIME_SEC:
+                # 통과 기준 50점
+                if score >= 50 and hearts > 0:
+                    game_over = True
+                    game_result = "success"
+                else:
+                    game_over = True
+                    game_result = "fail"
+
+        window.fill(BG_COLOR)
+
+        all_sprites.draw(window)
+
+        for i in range(INITIAL_HEARTS):
+            x = 20 + i * 40
+            y = 20
+            if i < hearts:
+                pygame.draw.polygon(window, RED, [
+                    (x + 10, y),
+                    (x + 20, y + 10),
+                    (x + 30, y),
+                    (x + 20, y + 30)
+                ])
+            else:
+                pygame.draw.polygon(window, GRAY, [
+                    (x + 10, y),
+                    (x + 20, y + 10),
+                    (x + 30, y),
+                    (x + 20, y + 30)
+                ])
+
+        draw_text(window, f"Score: {score}", 28, SCREEN_W - 200, 20)
+        remaining = max(0, GAME_TIME_SEC - elapsed_sec)
+        draw_text(window, f"Time: {remaining}s", 28, SCREEN_W - 200, 50)
+
+        if show_message_timer > 0:
+            draw_text(window, "앗! 책을 먹어버렸다... -1 ♥", 28,
+                      SCREEN_W // 2, SCREEN_H // 2 - 40, RED, center=True)
+            show_message_timer -= dt
+
+        if game_over:
+            if game_result == "success":
+                title = "성공! 포만 스탯 +4"
+                subtitle = ""
+            else:
+                title = "실패... 포만 스탯 +2"
+                subtitle = ""
+
+            draw_text(window, title, 40, SCREEN_W // 2, SCREEN_H // 2 - 40, center=True)
+            draw_text(window, subtitle, 26, SCREEN_W // 2, SCREEN_H // 2 + 10, center=True)
+            draw_text(window, "클릭하여 돌아가기", 20,
+                      SCREEN_W // 2, SCREEN_H // 2 + 70, center=True)
+
+        pygame.display.flip()
+
+    pygame.time.set_timer(SPAWN_EVENT, 0)
+
+    window = pygame.display.set_mode(prev_window_size, pygame.RESIZABLE)
+    pygame.display.set_caption(prev_caption[0])
+
+    reload_assets_for_size(GAME_W, GAME_H)
+    update_button_positions(GAME_W, GAME_H)
+
+    return game_result
+
+# -------------------------
+# 체력 미니게임 실행 (달리기)
+# -------------------------
+def play_health_run_minigame():
+    global window
+
+    prev_window_size = window.get_size()
+    prev_caption = pygame.display.get_caption()
+
+    info = pygame.display.Info()
+    full_w, full_h = info.current_w, info.current_h
+    window = pygame.display.set_mode((full_w, full_h))
+    pygame.display.setCaption = ("체력 미니게임 - 달리기")
+
+    WHITE = (255, 255, 255)
+    BLACK = (0, 0, 0)
+    GREEN = (0, 180, 0)
+    RED = (200, 0, 0)
+
+    font = load_font(64)
+    count_font = load_font(48)
+    emoji_font = load_font(100)
+    result_font = load_font(72)
+
+    try:
+        background_img = pygame.image.load(RUN_BG_FILE).convert()
+    except Exception:
+        background_img = None
+
+    target_height = int(full_h * 0.4)
+    player_img1 = None
+    player_img2 = None
+
+    try:
+        raw1 = pygame.image.load(RUN_PLAYER_FILE_1).convert_alpha()
+        w, h = raw1.get_size()
+        scale = target_height / h
+        player_img1 = pygame.transform.smoothscale(raw1, (int(w * scale), target_height))
+    except Exception:
+        player_img1 = None
+
+    try:
+        raw2 = pygame.image.load(RUN_PLAYER_FILE_2).convert_alpha()
+        w2, h2 = raw2.get_size()
+        scale2 = target_height / h2
+        player_img2 = pygame.transform.smoothscale(raw2, (int(w2 * scale2), target_height))
+    except Exception:
+        player_img2 = None
+
+    button_rect = pygame.Rect(0, 0, 380, 150)
+    button_rect.center = (full_w // 2, full_h // 2 - 100)
+ state = "ready"
+    click_count = 0
+    game_duration = 15
+    start_time = 0.0
+    TARGET_CLICKS = 90
+
+    LEFT_MARGIN = 80
+    RIGHT_MARGIN = full_w - 80
+    BOTTOM_Y = full_h - 40
+    emoji_x = LEFT_MARGIN
+    emoji_y = BOTTOM_Y
+    use_first_image = True
+
+    game_result = None
+    running = True
+    success_time = None
+
+    while running:
+        mouse_pos = pygame.mouse.get_pos()
+        hovered = button_rect.collidepoint(mouse_pos)
+        now = time.time()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+            if event.type == pygame.KEYDOWN:
+                if state == "result":
+                    if game_result == "success" and success_time is not None and (now - success_time) < 3:
+                        pass
+                    else:
+                        running = False
+
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if state == "ready":
+                    if hovered:
+                        state = "game"
+                        click_count = 0
+                        start_time = time.time()
+                        emoji_x = LEFT_MARGIN
+                        use_first_image = True
+
+                elif state == "game":
+                    if hovered:
+                        click_count += 1
+                        use_first_image = not use_first_image
+                        progress = min(click_count / TARGET_CLICKS, 1.0)
+                        emoji_x = LEFT_MARGIN + (RIGHT_MARGIN - LEFT_MARGIN) * progress
+
+                        if click_count >= TARGET_CLICKS:
+                            game_result = "success"
+                            state = "result"
+                            success_time = now
+
+                elif state == "result":
+                    if game_result == "success" and success_time is not None and (now - success_time) < 3:
+                        pass
+                    else:
+                        running = False
+
+        if background_img:
+            bg_scaled = pygame.transform.scale(background_img, (full_w, full_h))
+            window.blit(bg_scaled, (0, 0))
+        else:
+            window.fill(WHITE)
+
+        if state == "ready":
+            border_color = (50, 150, 80)
+            pygame.draw.rect(window, border_color, button_rect, width=6, border_radius=18)
+            start_label = font.render("START", True, WHITE)
+            window.blit(start_label, start_label.get_rect(center=button_rect.center))
+
+        elif state == "game":
+            current_time = time.time()
+            elapsed = current_time - start_time
+
+            border_color = (100, 180, 250) if hovered else (50, 100, 180)
+            pygame.draw.rect(window, border_color, button_rect, width=6, border_radius=18)
+            label = font.render("CLICK", True, WHITE)
+            window.blit(label, label.get_rect(center=button_rect.center))
+
+            remaining = max(0, int(game_duration - elapsed))
+            time_text = count_font.render(f"Time: {remaining}", True, BLACK)
+            window.blit(time_text, (20, 20))
+
+            progress = min(click_count / TARGET_CLICKS, 1.0)
+            emoji_x = LEFT_MARGIN + (RIGHT_MARGIN - LEFT_MARGIN) * progress
+
+            if player_img1 or player_img2:
+                if player_img1 and player_img2:
+                    current_img = player_img1 if use_first_image else player_img2
+                elif player_img1:
+                    current_img = player_img1
+                else:
+                    current_img = player_img2
+                char_rect = current_img.get_rect(midbottom=(emoji_x, BOTTOM_Y))
+                window.blit(current_img, char_rect.topleft)
+            else:
+                emoji_surface = emoji_font.render("", True, BLACK)
+                emoji_rect = emoji_surface.get_rect(midbottom=(emoji_x, BOTTOM_Y))
+                window.blit(emoji_surface, emoji_rect.topleft)
+
+            if elapsed >= game_duration and state == "game":
+                if click_count >= TARGET_CLICKS:
+                    game_result = "success"
+                    success_time = now
+                else:
+                    game_result = "fail"
+                state = "result"
+
+        elif state == "result":
+            if game_result == "success":
+                res = result_font.render("SUCCESS", True, GREEN)
+            else:
+                res = result_font.render("FAIL", True, RED)
+
+            window.blit(res, res.get_rect(center=(full_w // 2, 120)))
+
+            final_text = font.render(f"Total Clicks: {click_count}", True, BLACK)
+            window.blit(final_text, final_text.get_rect(center=(full_w // 2, full_h // 2)))
+
+            progress = min(click_count / TARGET_CLICKS, 1.0)
+            emoji_x = LEFT_MARGIN + (RIGHT_MARGIN - LEFT_MARGIN) * progress
+
+            if player_img1 or player_img2:
+                if player_img1 and player_img2:
+                    current_img = player_img1 if use_first_image else player_img2
+                elif player_img1:
+                    current_img = player_img1
+                else:
+                    current_img = player_img2
+                char_rect = current_img.get_rect(midbottom=(emoji_x, BOTTOM_Y))
+                window.blit(current_img, char_rect.topleft)
+            else:
+                emoji_surface = emoji_font.render("", True, BLACK)
+                emoji_rect = emoji_surface.get_rect(midbottom=(emoji_x, BOTTOM_Y))
+                window.blit(emoji_surface, emoji_rect.topleft)
+
+            tip_font = load_font(24)
+            tip = tip_font.render("클릭하여 돌아가기", True, BLACK)
+            tip_rect = tip.get_rect(center=(full_w // 2, full_h // 2 + 100))
+            window.blit(tip, tip_rect)
+
+        pygame.display.flip()
+        clock.tick(FPS)
+
+    window = pygame.display.set_mode(prev_window_size, pygame.RESIZABLE)
+    pygame.display.set_caption(prev_caption[0])
+
+    reload_assets_for_size(GAME_W, GAME_H)
+    update_button_positions(GAME_W, GAME_H)
+
+    return game_result
+
+# -------------------------
+# 버튼/박스 설정 (메인 게임)
+# -------------------------
+BUTTON_TEXT = "START"
+button_text_surf = FONT.render(BUTTON_TEXT, True, (255, 255, 255))
+button_box = pygame.Rect(0, 0, 220, 72)
+
+TUTORIAL_BUTTON_TEXT = "GO!"
+tutorial_button_box = pygame.Rect(0, 0, 160, 60)
+next_button_box = pygame.Rect(0, 0, 140, 55)
+
+stats_button_rect = pygame.Rect(0, 0, 110, 45)
+days_box_rect = pygame.Rect(0, 0, 150, 45)
+
+mini_labels = ["체력", "지능", "외모", "포만"]
+mini_buttons = []
+
+sleep_button_rect = pygame.Rect(0, 0, 160, 60)
+
+# 엔딩 1페이지용 버튼 (엔딩 확인하기)
+ending_button_rect = pygame.Rect(0, 0, 220, 60)
+
+# -------------------------
+# 디버그 스킵 버튼 (엔딩 바로 가기) - 완성본에서는 비활성화
+# -------------------------
+DEBUG_SKIP_BUTTON = False  # 엔딩 바로가기 버튼 사용 안 함
+debug_skip_button_rect = pygame.Rect(0, 0, 220, 40)
+
+# -------------------------
+# 게임 상태
+# -------------------------
+START_SCREEN = 0
+TUTORIAL_SCREEN = 1
+STORY_1 = 2
+STORY_2 = 3
+STORY_3 = 4
+GAME_PLAY = 5
+SLEEP_PROMPT = 6
+ENDING_SCREEN = 7          # 엔딩 1페이지 (종강 + 엔딩 확인하기 버튼)
+ENDING_GRADE_SCREEN = 8    # 엔딩 2페이지 (성적/엔딩 종류 화면)
+
+game_state = START_SCREEN
+
+STORY_TEXTS = [
+    "하아아아암 졸리다...\n(휴대폰을 확인하며)",
+    "허거덩거덩스!!!!! \n컴사 기말 프로젝트가 \n5일 남았다고???",
+    "너무 많이 남았네 \n밥 부터 먹어야지 야르!!!"
+]
+
+stats_panel_visible = False
+days_left = 5
+speech_text = "오늘 뭐 할까?"
+actions_today = 0
+
+player_stats = {
+    "체력": 0,
+    "지능": 0,
+    "외모": 0,
+    "포만": 0,
+}
+
+# 본게임에서 어떤 에녹이 사진을 쓸지 상태
+# "default", "success", "fail"
+current_enoch_pose = "default"
+
+# 미니게임 아이콘 hover/press 상태
+mini_hover_index = None
+mini_pressed_index = None
+
+# -------------------------
+# UI: 둥근 박스
+# -------------------------
+def draw_rounded_rect(surface, color, rect, radius):
+    temp = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+    pygame.draw.rect(temp, color, (0, 0, rect.width, rect.height), border_radius=radius)
+    surface.blit(temp, rect.topleft)
+
+# -------------------------
+# 페이드 전환
+# -------------------------
+def fade_transition(draw_from_func, draw_to_func):
+    draw_from_func()
+    from_surf = screen.copy()
+    draw_to_func()
+    to_surf = screen.copy()
+
+    start_ticks = pygame.time.get_ticks()
+    duration_ms = 350
+    while True:
+        elapsed = pygame.time.get_ticks() - start_ticks
+        if elapsed >= duration_ms:
+            break
+        alpha = min(255, int(255 * (elapsed / duration_ms)))
+        screen.blit(from_surf, (0, 0))
+        temp = to_surf.copy()
+        temp.set_alpha(alpha)
+        screen.blit(temp, (0, 0))
+
+        blit_game_to_window()
+        clock.tick(FPS)
+
+# -------------------------
+# 텍스트 줄바꿈 렌더링
+# -------------------------
+def draw_multiline_text(text, font, color, rect, line_gap=6):
+    lines = text.split("\n")
+    y = rect.top + 12
+    for line in lines:
+        surf = font.render(line, True, color)
+        screen.blit(surf, (rect.left + 16, y))
+        y += surf.get_height() + line_gap
+
+# -------------------------
+# 에녹이 본게임 이미지 선택 헬퍼
+# -------------------------
+def get_main_enoch_image():
+    if current_enoch_pose == "success" and game_photo_success_img is not None:
+        return game_photo_success_img
+    if current_enoch_pose == "fail" and game_photo_fail_img is not None:
+        return game_photo_fail_img
+    if game_photo_default_img is not None:
+        return game_photo_default_img
+    return None
+
+# -------------------------
+# 리사이즈 시 이미지/버튼 재계산
+# -------------------------
+def reload_assets_for_size(w, h):
+    global background_start, background_tutorial, background_game_default
+    global background_morning, background_noon, background_evening
+    global background_quiz, background_ending
+    global tutorial_img, story_photo_imgs
+    global game_photo_default_img, game_photo_success_img, game_photo_fail_img, sleeping_img
+    global ending_base_img, ending_A_default_img, ending_A_health_img, ending_A_intel_img, ending_A_appear_img
+    global ending_B_img, ending_F_default_img, ending_F_hunger_img
+    global mini_icon_imgs
+
+    background_start = load_and_scale(START_BG_FILE, (w, h))
+    background_tutorial = load_and_scale(TUTORIAL_BG_FILE, (w, h))
+    background_game_default = load_and_scale(GAME_BG_FILE, (w, h))
+
+    background_morning = load_and_scale(MORNING_BG_FILE, (w, h))
+    background_noon    = load_and_scale(NOON_BG_FILE, (w, h))
+    background_evening = load_and_scale(EVENING_BG_FILE, (w, h))
+
+    background_quiz   = load_and_scale(QUIZ_BG_FILE, (w, h))
+    background_ending = load_and_scale(ENDING_BG_FILE, (w, h))
+
+    tutorial_img = load_and_scale(TUTORIAL_IMG_FILE, (int(w * 0.8), int(h * 0.6)))
+
+    story_photo_imgs.clear()
+    max_story_w = int(w * STORY_IMG_MAX_W_RATIO)
+    max_story_h = int(h * STORY_IMG_MAX_H_RATIO)
+    for path in STORY_PHOTO_FILES:
+        img = load_keep_aspect(path, (max_story_w, max_story_h))
+        story_photo_imgs.append(img)
+
+    max_game_w = int(w * GAME_IMG_MAX_W_RATIO)
+    max_game_h = int(h * GAME_IMG_MAX_H_RATIO)
+    game_photo_default_img = load_keep_aspect(GAME_PHOTO_DEFAULT_FILE, (max_game_w, max_game_h))
+    game_photo_success_img = load_keep_aspect(GAME_PHOTO_SUCCESS_FILE, (max_game_w, max_game_h))
+    game_photo_fail_img    = load_keep_aspect(GAME_PHOTO_FAIL_FILE,    (max_game_w, max_game_h))
+
+    sleeping_img = load_keep_aspect(SLEEP_PHOTO_FILE, (max_game_w, max_game_h))
+
+    max_end_w = int(w * ENDING_IMG_MAX_W_RATIO)
+    max_end_h = int(h * ENDING_IMG_MAX_H_RATIO)
+    ending_base_img      = load_keep_aspect(ENDING_BASE_IMG_FILE,      (max_end_w, max_end_h))
+    ending_A_default_img = load_keep_aspect(ENDING_A_DEFAULT_IMG_FILE, (max_end_w, max_end_h))
+    ending_A_health_img  = load_keep_aspect(ENDING_A_HEALTH_IMG_FILE,  (max_end_w, max_end_h))
+    ending_A_intel_img   = load_keep_aspect(ENDING_A_INTEL_IMG_FILE,   (max_end_w, max_end_h))
+    ending_A_appear_img  = load_keep_aspect(ENDING_A_APPEAR_IMG_FILE,  (max_end_w, max_end_h))
+    ending_B_img         = load_keep_aspect(ENDING_B_IMG_FILE,         (max_end_w, max_end_h))
+    ending_F_default_img = load_keep_aspect(ENDING_F_DEFAULT_IMG_FILE, (max_end_w, max_end_h))
+    ending_F_hunger_img  = load_keep_aspect(ENDING_F_HUNGER_IMG_FILE,  (max_end_w, max_end_h))
+
+    mini_icon_imgs.clear()
+    for path in MINI_ICON_FILES:
+        img = load_keep_aspect(path, (MINI_BTN_BASE_SIZE, MINI_BTN_BASE_SIZE))
+        mini_icon_imgs.append(img)
+
+def update_button_positions(w, h):
+    global mini_buttons
+
+    button_box.center = (w // 2, h // 2 + 150)
+    tutorial_button_box.topleft = (w - 160 - 20, h - 60 - 20)
+    next_button_box.topleft = (w - 140 - 20, h - 55 - 20)
+
+    stats_button_rect.topleft = (20, 20)
+
+    # 날짜 박스 사이즈 줄이기 + D-숫자만 표시
+    days_box_rect.size = (110, 40)
+    days_box_rect.topright = (w - 20, 20)
+
+    mini_buttons = []
+    gap = 5
+    max_size_by_width = (w - 3 * gap) // 4
+    mini_btn_size = min(MINI_BTN_BASE_SIZE, max_size_by_width)
+
+    total_w = mini_btn_size * 4 + gap * 3
+    start_x = (w - total_w) // 2
+    y = h - mini_btn_size - 30
+
+    for label_idx, label in enumerate(mini_labels):
+        rect = pygame.Rect(start_x + label_idx * (mini_btn_size + gap), y,
+                           mini_btn_size, mini_btn_size)
+        mini_buttons.append({"rect": rect, "label": label})
+
+    sleep_button_rect.center = (w // 2, int(h * 0.82))
+
+    if DEBUG_SKIP_BUTTON:
+        debug_skip_button_rect.center = (w // 2, h // 2 + 230)
+
+reload_assets_for_size(GAME_W, GAME_H)
+update_button_positions(GAME_W, GAME_H)
+
+# -------------------------
+# 화면 비율 유지용
+# -------------------------
+def get_game_view_params():
+    win_w, win_h = window.get_size()
+    target_ratio = GAME_W / GAME_H
+    win_ratio = win_w / win_h if win_h != 0 else target_ratio
+
+    if win_ratio > target_ratio:
+        surf_h = win_h
+        surf_w = int(surf_h * target_ratio)
+    else:
+        surf_w = win_w
+        surf_h = int(surf_w / target_ratio)
+
+    scale = surf_w / GAME_W
+    offset_x = (win_w - surf_w) // 2
+    offset_y = (win_h - surf_h) // 2
+    return scale, offset_x, offset_y, surf_w, surf_h
+
+def window_to_game(pos):
+    mx, my = pos
+    scale, ox, oy, surf_w, surf_h = get_game_view_params()
+    if not (ox <= mx < ox + surf_w and oy <= my < oy + surf_h):
+        return None
+    gx = (mx - ox) / scale
+    gy = (my - oy) / scale
+    return int(gx), int(gy)
+
+def blit_game_to_window():
+    scale, ox, oy, surf_w, surf_h = get_game_view_params()
+    window.fill((0, 0, 0))
+    if int(surf_w) != GAME_W or int(surf_h) != GAME_H:
+        scaled = pygame.transform.smoothscale(screen, (surf_w, surf_h))
+        window.blit(scaled, (ox, oy))
+    else:
+        window.blit(screen, (ox, oy))
+    pygame.display.update()
+
+# -------------------------
+# 화면 그리기 - 시작/튜토리얼/스토리
+# -------------------------
+def draw_start_screen():
+    screen.fill((25, 20, 60))
+    screen.blit(background_start, (0, 0))
+
+    mouse_game = window_to_game(pygame.mouse.get_pos())
+    if mouse_game is None:
+        mouse_game = (-9999, -9999)
+
+    hovered = button_box.collidepoint(mouse_game)
+    alpha = 200 if hovered else 160
+    draw_rounded_rect(screen, (0, 0, 0, alpha), button_box, 15)
+    pygame.draw.rect(screen, (255, 255, 255), button_box, 2, border_radius=15)
+
+    text = load_font(64).render(BUTTON_TEXT, True, (255, 255, 255)) if hovered else button_text_surf
+    screen.blit(text, text.get_rect(center=button_box.center))
+
+    # 디버그 버튼은 DEBUG_SKIP_BUTTON=False라서 표시 안 됨
+    if DEBUG_SKIP_BUTTON:
+        hovered_dbg = debug_skip_button_rect.collidepoint(mouse_game)
+        alpha_dbg = 180 if hovered_dbg else 130
+        draw_rounded_rect(screen, (40, 0, 0, alpha_dbg), debug_skip_button_rect, 12)
+        pygame.draw.rect(screen, (255, 255, 255), debug_skip_button_rect, 1, border_radius=12)
+        dbg_txt = DAY_FONT.render("DEBUG: 엔딩 바로가기", True, (255, 255, 255))
+        screen.blit(dbg_txt, dbg_txt.get_rect(center=debug_skip_button_rect.center))
+
+def draw_tutorial_screen():
+    screen.fill((15, 50, 80))
+    if background_tutorial is not None:
+        screen.blit(background_tutorial, (0, 0))
+
+    box_w = int(GAME_W * 0.8)
+    box_h = int(GAME_H * 0.6)
+    tut_rect = pygame.Rect(0, 0, box_w, box_h)
+    tut_rect.center = (GAME_W // 2, GAME_H // 2 - 40)
+
+    draw_rounded_rect(screen, (240, 240, 240, 230), tut_rect, 25)
+    pygame.draw.rect(screen, (80, 80, 80), tut_rect, 3, border_radius=25)
+
+    tutorial_text = (
+        "당신은 에녹이 조의 조원입니다. \n"
+        "그러나 에녹이는 능력이 \n"
+        "부족합니다.\n"
+        "당신이 에녹이를 훌륭한\n"
+        "조장으로 키워 A를 받아보세요.\n\n\n"
+        "미니게임은 하루 3번\n"
+        "플레이 가능합니다.\n"
+        "총 5일동안 에녹이를\n"
+        "잘 키워보세요."
+    )
+    draw_multiline_text(tutorial_text, STORY_FONT, (20, 20, 20), tut_rect)
+
+    draw_rounded_rect(screen, (0, 0, 0, 160), tutorial_button_box, 15)
+    pygame.draw.rect(screen, (255, 255, 255), tutorial_button_box, 2, border_radius=15)
+    btn_text = TUTORIAL_FONT.render(TUTORIAL_BUTTON_TEXT, True, (255, 255, 255))
+    screen.blit(btn_text, btn_text.get_rect(center=tutorial_button_box.center))
+
+def draw_story_screen(page_idx):
+    screen.fill((30, 30, 70))
+    screen.blit(background_game_default, (0, 0))
+
+    img = story_photo_imgs[page_idx]
+    cx = int(GAME_W * STORY_IMG_CENTER_X_RATIO)
+    cy = int(GAME_H * STORY_IMG_CENTER_Y_RATIO)
+    img_rect = img.get_rect(center=(cx, cy))
+    screen.blit(img, img_rect)
+
+    bubble_w = int(GAME_W * 0.78)
+    bubble_h = int(GAME_H * 0.20)
+    bubble_rect = pygame.Rect(0, 0, bubble_w, bubble_h)
+    bubble_rect.center = (GAME_W // 2, int(GAME_H * 0.72))
+
+    draw_rounded_rect(screen, (180, 180, 180, 230), bubble_rect, 18)
+    pygame.draw.rect(screen, (120, 120, 120), bubble_rect, 2, border_radius=18)
+
+    draw_multiline_text(STORY_TEXTS[page_idx], STORY_FONT, (20, 20, 20), bubble_rect)
+
+    draw_rounded_rect(screen, (0, 0, 0, 170), next_button_box, 12)
+    pygame.draw.rect(screen, (255, 255, 255), next_button_box, 2, border_radius=12)
+    nxt = NEXT_FONT.render("NEXT ▶", True, (255, 255, 255))
+    screen.blit(nxt, nxt.get_rect(center=next_button_box.center))
+
+    page_tag = NEXT_FONT.render(f"{page_idx+1}/3", True, (255, 255, 255))
+    screen.blit(page_tag, (20, GAME_H - 45))
+
+# -------------------------
+# 스탯창
+# -------------------------
+def draw_stats_panel():
+    overlay = pygame.Surface((GAME_W, GAME_H), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 150))
+    screen.blit(overlay, (0, 0))
+
+    panel_w = int(GAME_W * 0.75)
+    panel_h = int(GAME_H * 0.45)
+    panel_rect = pygame.Rect(0, 0, panel_w, panel_h)
+    panel_rect.center = (GAME_W // 2, GAME_H // 2)
+
+    draw_rounded_rect(screen, (240, 240, 240, 255), panel_rect, 20)
+    pygame.draw.rect(screen, (80, 80, 80), panel_rect, 2, border_radius=20)
+
+    title = STAT_FONT.render("에녹이 스탯", True, (20, 20, 20))
+    screen.blit(title, (panel_rect.left + 20, panel_rect.top + 20))
+
+    y = panel_rect.top + 80
+    for name, value in player_stats.items():
+        line = f"{name} - {value}"
+        line_surf = STAT_FONT.render(line, True, (30, 30, 30))
+        screen.blit(line_surf, (panel_rect.left + 40, y))
+        y += line_surf.get_height() + 12
+
+    hint = DAY_FONT.render("스탯 버튼을 다시 눌러 닫기", True, (60, 60, 60))
+    screen.blit(hint, (panel_rect.left + 20, panel_rect.bottom - 40))
+
+# -------------------------
+# 본게임 화면
+# -------------------------
+def draw_game_play():
+    global mini_hover_index, mini_pressed_index
+
+    if actions_today == 0:
+        bg = background_morning or background_game_default
+    elif actions_today == 1:
+        bg = background_noon or background_game_default
+    else:
+        bg = background_evening or background_game_default
+
+    screen.fill((20, 45, 70))
+    screen.blit(bg, (0, 0))
+
+    mouse_game = window_to_game(pygame.mouse.get_pos()) or (-9999, -9999)
+    hovered_stats = stats_button_rect.collidepoint(mouse_game)
+    alpha_stats = 190 if hovered_stats else 150
+    draw_rounded_rect(screen, (0, 0, 0, alpha_stats), stats_button_rect, 10)
+    pygame.draw.rect(screen, (255, 255, 255), stats_button_rect, 2, border_radius=10)
+    stats_text = DAY_FONT.render("스탯", True, (255, 255, 255))
+    screen.blit(stats_text, stats_text.get_rect(center=stats_button_rect.center))
+
+    # 날짜 박스: "D-숫자"만 표시
+    draw_rounded_rect(screen, (0, 0, 0, 150), days_box_rect, 10)
+    pygame.draw.rect(screen, (255, 255, 255), days_box_rect, 2, border_radius=10)
+    value = DAY_FONT.render(f"D-{days_left}", True, (255, 255, 255))
+    value_rect = value.get_rect(center=days_box_rect.center)
+    screen.blit(value, value_rect)
+
+    img = get_main_enoch_image()
+    if img is not None:
+        cx = int(GAME_W * GAME_IMG_CENTER_X_RATIO)
+        cy = int(GAME_H * GAME_IMG_CENTER_Y_RATIO)
+        img_rect = img.get_rect(center=(cx, cy))
+        screen.blit(img, img_rect)
+
+    bubble_w = int(GAME_W * 0.80)
+    bubble_h = int(GAME_H * 0.18)
+    bubble_rect = pygame.Rect(0, 0, bubble_w, bubble_h)
+
+    if mini_buttons:
+        mini_top = mini_buttons[0]["rect"].top
+        bubble_rect.bottom = mini_top - 10
+    else:
+        bubble_rect.center = (GAME_W // 2, int(GAME_H * 0.75))
+
+    bubble_rect.centerx = GAME_W // 2
+
+    draw_rounded_rect(screen, (180, 180, 180, 235), bubble_rect, 18)
+    pygame.draw.rect(screen, (120, 120, 120), bubble_rect, 2, border_radius=18)
+    draw_multiline_text(speech_text, STORY_FONT, (20, 20, 20), bubble_rect)
+
+    for idx, btn in enumerate(mini_buttons):
+        rect = btn["rect"]
+        scale = 1.0
+        if idx == mini_hover_index:
+            scale = 1.1
+        if idx == mini_pressed_index:
+            scale = 0.95
+
+        if idx < len(mini_icon_imgs) and mini_icon_imgs[idx] is not None:
+            base_icon = mini_icon_imgs[idx]
+            bw, bh = base_icon.get_size()
+            new_w = int(bw * scale)
+            new_h = int(bh * scale)
+            icon = pygame.transform.smoothscale(base_icon, (new_w, new_h))
+            icon_rect = icon.get_rect(center=rect.center)
+            screen.blit(icon, icon_rect)
+        else:
+            label_surf = MINI_FONT.render(btn["label"], True, (255, 255, 255))
+            screen.blit(label_surf, label_surf.get_rect(center=rect.center))
+
+    if stats_panel_visible:
+        draw_stats_panel()
+
+# -------------------------
+# 밤 화면 (취침)
+# -------------------------
+def draw_sleep_prompt():
+    screen.fill((0, 0, 0))
+
+    img = get_main_enoch_image()
+    if img is not None:
+        cx = int(GAME_W * GAME_IMG_CENTER_X_RATIO)
+        cy = int(GAME_H * GAME_IMG_CENTER_Y_RATIO)
+        img_rect = img.get_rect(center=(cx, cy))
+        screen.blit(img, img_rect)
+
+    bubble_w = int(GAME_W * 0.80)
+    bubble_h = int(GAME_H * 0.18)
+    bubble_rect = pygame.Rect(0, 0, bubble_w, bubble_h)
+    bubble_rect.center = (GAME_W // 2, int(GAME_H * 0.62))
+
+    draw_rounded_rect(screen, (180, 180, 180, 235), bubble_rect, 18)
+    pygame.draw.rect(screen, (120, 120, 120), bubble_rect, 2, border_radius=18)
+
+    text = "알찬 하루였다!\n내일은 진짜 더 열심히 산다."
+    draw_multiline_text(text, STORY_FONT, (20, 20, 20), bubble_rect)
+
+    draw_rounded_rect(screen, (0, 0, 0, 190), sleep_button_rect, 12)
+    pygame.draw.rect(screen, (255, 255, 255), sleep_button_rect, 2, border_radius=12)
+    sleep_text = NEXT_FONT.render("디비 자기", True, (255, 255, 255))
+    screen.blit(sleep_text, sleep_text.get_rect(center=sleep_button_rect.center))
+
+# -------------------------
+# 엔딩 1페이지 (종강 + 엔딩 확인하기 버튼)
+# -------------------------
+def draw_ending_screen():
+    if background_ending is not None:
+        screen.blit(background_ending, (0, 0))
+    else:
+        screen.fill((20, 45, 70))
+
+    img = ending_base_img or get_main_enoch_image()
+    if img is not None:
+        cx = int(GAME_W * ENDING_IMG_CENTER_X_RATIO)
+        cy = int(GAME_H * ENDING_IMG_CENTER_Y_RATIO)
+        img_rect = img.get_rect(center=(cx, cy))
+        screen.blit(img, img_rect)
+
+    bubble_w = int(GAME_W * 0.80)
+    bubble_h = int(GAME_H * 0.18)
+    bubble_rect = pygame.Rect(0, 0, bubble_w, bubble_h)
+    bubble_rect.center = (GAME_W // 2, int(GAME_H * 0.75))
+
+    draw_rounded_rect(screen, (180, 180, 180, 235), bubble_rect, 18)
+    pygame.draw.rect(screen, (120, 120, 120), bubble_rect, 2, border_radius=18)
+
+    ending_text = "5일이 지나고\n종강했다."
+    draw_multiline_text(ending_text, STORY_FONT, (20, 20, 20), bubble_rect)
+
+    # 버튼을 말풍선 밑 정 가운데로
+    ending_button_rect.centerx = GAME_W // 2
+    ending_button_rect.top = bubble_rect.bottom + 10
+
+    draw_rounded_rect(screen, (0, 0, 0, 190), ending_button_rect, 12)
+    pygame.draw.rect(screen, (255, 255, 255), ending_button_rect, 2, border_radius=12)
+    btn_text = NEXT_FONT.render("엔딩 확인하기", True, (255, 255, 255))
+    screen.blit(btn_text, btn_text.get_rect(center=ending_button_rect.center))
+
+# -------------------------
+# 엔딩 2페이지 (성적/엔딩 종류 화면)
+# -------------------------
+def draw_ending_grade_screen():
+    if background_ending is not None:
+        screen.blit(background_ending, (0, 0))
+    else:
+        screen.fill((20, 45, 70))
+
+    health = player_stats["체력"]
+    intel  = player_stats["지능"]
+    appear = player_stats["외모"]
+    full   = player_stats["포만"]
+
+    total = health + intel + appear + full
+    max_total = 60  # 15번 행동 × 최대 4점
+
+    # 54~60  → A, 44~53 → B, 그 외 → F
+    if total >= 54:
+        grade = "A"
+    elif total >= 44:
+        grade = "B"
+    else:
+        grade = "F"
+
+    ending_type = ""
+    img = None
+    comment = ""
+
+    if grade == "A":
+        # 체력/지능/외모 중 30 이상이면서 가장 높은 스탯 기준
+        best_stat = None
+        best_value = -1
+        for name, value in [("체력", health), ("지능", intel), ("외모", appear)]:
+            if value >= 30 and value > best_value:
+                best_stat = name
+                best_value = value
+
+        if best_stat == "체력":
+            ending_type = "A-체력 엔딩"
+            img = ending_A_health_img or ending_A_default_img or ending_base_img
+            comment = "역시 몸이 건강해야\n정신도 건강하다고!\n더블 바이셉스!!"
+        elif best_stat == "지능":
+            ending_type = "A-지능 엔딩"
+            img = ending_A_intel_img or ending_A_default_img or ending_base_img
+            comment = "너무 똑똑해진 에녹이\n교수님이 노트필기를 \n부탁할 정도다."
+        elif best_stat == "외모":
+            ending_type = "A-외모 엔딩"
+            img = ending_A_appear_img or ending_A_default_img or ending_base_img
+            comment = "시험시간에 모든 학생이 \n에녹이 외모에 빠져 시험을 \n치르지 못했다."
+        else:
+            ending_type = "A-기본 엔딩"
+            img = ending_A_default_img or ending_base_img or ending_A_health_img or ending_A_intel_img or ending_A_appear_img
+            comment = "뭐야 전산 오류야?\n와.. 암튼 A고맙다."
+
+    elif grade == "B":
+        ending_type = "B 엔딩"
+        img = ending_B_img or ending_A_default_img or ending_base_img
+        comment = "아쉽지만 나쁘지 않네\n다음 학기에는 조금만 더 힘내보자!"
+
+    else:  # F
+        # 포만이 가장 높으면 F-허기(밥만 먹은) 엔딩
+        if full >= health and full >= intel and full >= appear:
+            ending_type = "F-허기 엔딩"
+            img = ending_F_hunger_img or ending_F_default_img or ending_base_img
+            comment = "어우 식곤증 때문에 잠만 잤네\n"
+        else:
+            ending_type = "F-기본 엔딩"
+            img = ending_F_default_img or ending_base_img
+            comment = "대학교에도 5학년이 있다고요??\n나도 알고싶지 않았어.."
+
+    if img is None:
+        img = ending_base_img
+
+    if img is not None:
+        cx = int(GAME_W * ENDING_IMG_CENTER_X_RATIO)
+        cy = int(GAME_H * ENDING_IMG_CENTER_Y_RATIO)
+        img_rect = img.get_rect(center=(cx, cy))
+        screen.blit(img, img_rect)
+
+    bubble_w = int(GAME_W * 0.80)
+    bubble_h = int(GAME_H * 0.30)
+    bubble_rect = pygame.Rect(0, 0, bubble_w, bubble_h)
+    bubble_rect.center = (GAME_W // 2, int(GAME_H * 0.75))
+
+    draw_rounded_rect(screen, (180, 180, 180, 235), bubble_rect, 18)
+    pygame.draw.rect(screen, (120, 120, 120), bubble_rect, 2, border_radius=18)
+
+    # 엔딩 대화창에는 성적 + 대사만
+    grade_text = (
+        f"에녹이의 성적: {grade}\n\n"
+        f"{comment}"
+    )
+
+    draw_multiline_text(grade_text, STORY_FONT, (20, 20, 20), bubble_rect)
+
+    tip = DAY_FONT.render("클릭하거나 아무 키나 누르면 게임이 종료됩니다.", True, (255, 255, 255))
+    tip_rect = tip.get_rect(center=(GAME_W // 2, GAME_H - 30))
+    screen.blit(tip, tip_rect)
+
+# -------------------------
+# 하루 끝 → 잠자는 장면 + 다음날/엔딩 전환
+# -------------------------
+def show_sleeping_and_next_day():
+    global days_left, actions_today, speech_text, game_state, current_enoch_pose
+
+    screen.fill((0, 0, 0))
+    if sleeping_img is not None:
+        img_rect = sleeping_img.get_rect(center=(GAME_W // 2, GAME_H // 2))
+        screen.blit(sleeping_img, img_rect)
+    blit_game_to_window()
+
+    pygame.time.delay(1000)
+
+    days_left -= 1
+
+    if days_left <= 0:
+        game_state = ENDING_SCREEN
+        return
+
+    actions_today = 0
+    current_enoch_pose = "default"
+    speech_text = "오늘은 뭘 할까?"
+    game_state = GAME_PLAY
+
+# -------------------------
+# 메인 루프
+# -------------------------
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+            break
+
+        if event.type == pygame.VIDEORESIZE:
+            window = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
+
+        if event.type == pygame.MOUSEMOTION and game_state == GAME_PLAY:
+            pos = window_to_game(event.pos)
+            mini_hover_index = None
+            if pos is not None:
+                mx, my = pos
+                if actions_today < 3:
+                    for idx, btn in enumerate(mini_buttons):
+                        if btn["rect"].collidepoint(mx, my):
+                            mini_hover_index = idx
+                            if idx == 0:
+                                speech_text = "날씨도 좋은데 \n우사인볼트 이겨봐?"
+                            elif idx == 1:
+                                speech_text = "돌고래보단 똑똑해야 하는데..\n지능좀 올려볼까?"
+                            elif idx == 2:
+                                speech_text = "에녹이 사진첩을 보고\n외모 감상좀 해볼까?"
+                            elif idx == 3:
+                                speech_text = "아 다이어트 할거라고"
+                            break
+
+        if event.type == pygame.KEYDOWN:
+            if game_state == START_SCREEN and event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                fade_transition(draw_start_screen, draw_tutorial_screen)
+                game_state = TUTORIAL_SCREEN
+
+            elif game_state == TUTORIAL_SCREEN and event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                fade_transition(draw_tutorial_screen, lambda: draw_story_screen(0))
+                game_state = STORY_1
+
+            elif game_state in (STORY_1, STORY_2, STORY_3) and event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                next_state = game_state + 1
+                if next_state == GAME_PLAY:
+                    fade_transition(lambda: draw_story_screen(game_state - STORY_1),
+                                    draw_game_play)
+                else:
+                    fade_transition(lambda: draw_story_screen(game_state - STORY_1),
+                                    lambda: draw_story_screen(next_state - STORY_1))
+                game_state = next_state
+
+            elif game_state == ENDING_SCREEN and event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                game_state = ENDING_GRADE_SCREEN
+
+            elif game_state == ENDING_GRADE_SCREEN:
+                running = False
+
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            game_pos = window_to_game(event.pos)
+            if game_pos is None:
+                continue
+            mx, my = game_pos
+
+            if game_state == START_SCREEN:
+                if button_box.collidepoint(mx, my):
+                    fade_transition(draw_start_screen, draw_tutorial_screen)
+                    game_state = TUTORIAL_SCREEN
+
+                # DEBUG_SKIP_BUTTON이 False라서 여기는 실행 안 됨
+                elif DEBUG_SKIP_BUTTON and debug_skip_button_rect.collidepoint(mx, my):
+                    game_state = ENDING_SCREEN
+
+            elif game_state == TUTORIAL_SCREEN and tutorial_button_box.collidepoint(mx, my):
+                fade_transition(draw_tutorial_screen, lambda: draw_story_screen(0))
+                game_state = STORY_1
+
+            elif game_state in (STORY_1, STORY_2, STORY_3):
+                next_state = game_state + 1
+                if next_state == GAME_PLAY:
+                    fade_transition(lambda: draw_story_screen(game_state - STORY_1),
+                                    draw_game_play)
+                else:
+                    fade_transition(lambda: draw_story_screen(game_state - STORY_1),
+                                    lambda: draw_story_screen(next_state - STORY_1))
+                game_state = next_state
+
+            elif game_state == GAME_PLAY:
+                if stats_button_rect.collidepoint(mx, my):
+                    stats_panel_visible = not stats_panel_visible
+
+                for idx, btn in enumerate(mini_buttons):
+                    rect = btn["rect"]
+                    if rect.collidepoint(mx, my):
+
+                        if actions_today >= 3:
+                            break
+
+                        mini_pressed_index = idx
+                        draw_game_play()
+                        blit_game_to_window()
+                        pygame.time.delay(80)
+
+                        if idx == 0:
+                            result = play_health_run_minigame()
+                            if result == "success":
+                                speech_text = "에녹이는 전력 질주를 했다!\n체력이 4 올랐다!"
+                                player_stats["체력"] = min(100, player_stats["체력"] + 4)
+                                actions_today += 1
+                                current_enoch_pose = "success"
+                            elif result == "fail":
+                                speech_text = "조금 힘들었지만...\n체력이 2 올랐다!"
+                                player_stats["체력"] = min(100, player_stats["체력"] + 2)
+                                actions_today += 1
+                                current_enoch_pose = "fail"
+                            else:
+                                speech_text = "체력 미니게임을 중단했다."
+
+                        elif idx == 1:
+                            result = play_intelligence_quiz_minigame()
+                            if result == "success":
+                                speech_text = "정답! 야르!!\n지능이 4 올랐다!"
+                                player_stats["지능"] = min(100, player_stats["지능"] + 4)
+                                actions_today += 1
+                                current_enoch_pose = "success"
+                            elif result == "fail":
+                                speech_text = "오답...안야르...\n그래도 지능이 2 올랐다!"
+                                player_stats["지능"] = min(100, player_stats["지능"] + 2)
+                                actions_today += 1
+                                current_enoch_pose = "fail"
+                            else:
+                                speech_text = "지능 미니게임을 중단했다."
+
+                        elif idx == 2:
+                            result = play_appearance_minigame()
+                            if result == "success":
+                                speech_text = "에녹이 맞추기 성공!\n외모가 4 올랐다!"
+                                player_stats["외모"] = min(100, player_stats["외모"] + 4)
+                                actions_today += 1
+                                current_enoch_pose = "success"
+                            elif result == "fail":
+                                speech_text = "에녹이 맞추기 실패...\n그래도 외모가 2 올랐다!"
+                                player_stats["외모"] = min(100, player_stats["외모"] + 2)
+                                actions_today += 1
+                                current_enoch_pose = "fail"
+                            else:
+                                speech_text = "외모 미니게임을 중단했다."
+
+                        elif idx == 3:
+                            result = play_fullness_minigame()
+                            if result == "success":
+                                speech_text = "꺼억!!\n포만이 4 올랐다!"
+                                player_stats["포만"] = min(100, player_stats["포만"] + 4)
+                                actions_today += 1
+                                current_enoch_pose = "success"
+                            elif result == "fail":
+                                speech_text = "더 먹고싶다...\n포만이 2 올랐다!"
+                                player_stats["포만"] = min(100, player_stats["포만"] + 2)
+                                actions_today += 1
+                                current_enoch_pose = "fail"
+                            else:
+                                speech_text = "포만 미니게임을 중단했다."
+
+                        mini_pressed_index = None
+
+                        if actions_today >= 3:
+                            stats_panel_visible = False
+                            fade_transition(draw_game_play, draw_sleep_prompt)
+                            game_state = SLEEP_PROMPT
+
+                        break
+
+            elif game_state == SLEEP_PROMPT:
+                if sleep_button_rect.collidepoint(mx, my):
+                    show_sleeping_and_next_day()
+
+            elif game_state == ENDING_SCREEN:
+                if ending_button_rect.collidepoint(mx, my):
+                    game_state = ENDING_GRADE_SCREEN
+
+            elif game_state == ENDING_GRADE_SCREEN:
+                running = False
+
+    if game_state == START_SCREEN:
+        draw_start_screen()
+    elif game_state == TUTORIAL_SCREEN:
+        draw_tutorial_screen()
+    elif game_state == STORY_1:
+        draw_story_screen(0)
+    elif game_state == STORY_2:
+        draw_story_screen(1)
+    elif game_state == STORY_3:
+        draw_story_screen(2)
+    elif game_state == GAME_PLAY:
+        draw_game_play()
+    elif game_state == SLEEP_PROMPT:
+        draw_sleep_prompt()
+    elif game_state == ENDING_SCREEN:
+        draw_ending_screen()
+    elif game_state == ENDING_GRADE_SCREEN:
+        draw_ending_grade_screen()
+
+    blit_game_to_window()
+    clock.tick(FPS)
+
+pygame.quit()
+sys.exit()
