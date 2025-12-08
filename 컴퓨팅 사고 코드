@@ -25,6 +25,21 @@ FPS = 60
 # -------------------------
 KOREAN_FONT_FILE = "NanumGothic.otf"
 
+# 폰트 캐시
+_font_cache = {}
+
+def load_font(size):
+    """같은 크기 폰트를 계속 새로 안 만들고 캐싱해서 재사용"""
+    if size in _font_cache:
+        return _font_cache[size]
+    try:
+        font = pygame.font.Font(KOREAN_FONT_FILE, size)
+    except Exception as e:
+        print(f"[경고] 폰트 로드 실패: {KOREAN_FONT_FILE} -> {e}")
+        font = pygame.font.Font(None, size)
+    _font_cache[size] = font
+    return font
+
 # -------------------------
 # ★ 미니게임 아이콘 기본 크기
 # -------------------------
@@ -36,7 +51,6 @@ MINI_BTN_BASE_SIZE = 130
 START_BG_FILE = "background.png"
 TUTORIAL_BG_FILE = "tutorial_bg.jpg"
 GAME_BG_FILE = "background_start.jpg"
-TUTORIAL_IMG_FILE = "tutorial_text.png"  # 현재는 사용하지 않지만 남겨둠
 
 STORY_PHOTO_FILES = [
     "story1.png",
@@ -52,26 +66,29 @@ GAME_PHOTO_FAIL_FILE    = "enoch_fail.png"      # 미니게임 실패 후 에녹
 # 잠자는 에녹이
 SLEEP_PHOTO_FILE = "sleep.png"
 
+# 취침하기 버튼 화면 전용 에녹이
+SLEEP_PROMPT_PHOTO_FILE = "sleep_prompt.png"
+
 # 배경
 MORNING_BG_FILE = "bg_morning.jpg"
 NOON_BG_FILE    = "bg_noon.jpg"
 EVENING_BG_FILE = "bg_evening.jpg"
 
-# ★ 지능 퀴즈 전용 배경, 엔딩 전용 배경
-QUIZ_BG_FILE   = "quiz_bg.jpg"     # 지능 미니게임(퀴즈) 배경
-ENDING_BG_FILE = "ending_bg.jpg"   # 엔딩 1, 2페이지 공통 배경
+# 지능 퀴즈, 엔딩 배경
+QUIZ_BG_FILE   = "quiz_bg.jpg"
+ENDING_BG_FILE = "ending_bg.jpg"
 
-# 엔딩에서 사용하는 에녹이 사진
-ENDING_BASE_IMG_FILE        = "ending_base.png"   # 엔딩 1페이지(종강했다) 에녹이
+# 엔딩 1페이지(종강) 에녹이
+ENDING_BASE_IMG_FILE        = "ending_base.png"
 
-# 새 엔딩 분기용 이미지 (원하는 파일명으로 변경해서 사용)
-ENDING_A_DEFAULT_IMG_FILE   = "ending_A_default.png"   # A 기본 엔딩
-ENDING_A_HEALTH_IMG_FILE    = "ending_A_health.png"    # A 체력 엔딩
-ENDING_A_INTEL_IMG_FILE     = "ending_A_intel.png"     # A 지능 엔딩
-ENDING_A_APPEAR_IMG_FILE    = "ending_A_appear.png"    # A 외모 엔딩
-ENDING_B_IMG_FILE           = "ending_B.png"           # B 엔딩 (단일)
-ENDING_F_DEFAULT_IMG_FILE   = "ending_F_default.png"   # F 기본 엔딩
-ENDING_F_HUNGER_IMG_FILE    = "ending_F_hunger.png"    # F 허기 엔딩 (포만이 제일 높을 때)
+# 새 엔딩 분기용 이미지
+ENDING_A_DEFAULT_IMG_FILE   = "ending_A_default.png"
+ENDING_A_HEALTH_IMG_FILE    = "ending_A_health.png"
+ENDING_A_INTEL_IMG_FILE     = "ending_A_intel.png"
+ENDING_A_APPEAR_IMG_FILE    = "ending_A_appear.png"
+ENDING_B_IMG_FILE           = "ending_B.png"
+ENDING_F_DEFAULT_IMG_FILE   = "ending_F_default.png"
+ENDING_F_HUNGER_IMG_FILE    = "ending_F_hunger.png"
 
 # 미니게임 아이콘 (체력, 지능, 외모, 포만)
 MINI_ICON_FILES = [
@@ -82,25 +99,22 @@ MINI_ICON_FILES = [
 ]
 
 # -------------------------
-# ★ 스토리/본게임 에녹 사진 위치 / 크기 조절용 설정값
+# 스토리/본게임/엔딩 에녹 사진 위치/크기 비율
 # -------------------------
-# 스토리 화면에서 에녹 사진
 STORY_IMG_MAX_W_RATIO = 0.95
 STORY_IMG_MAX_H_RATIO = 0.55
 STORY_IMG_CENTER_X_RATIO = 0.5
 STORY_IMG_CENTER_Y_RATIO = 0.38
 
-# 본게임에서 에녹 사진 (기본/성공/실패 공통)
 GAME_IMG_MAX_W_RATIO = 0.95
 GAME_IMG_MAX_H_RATIO = 0.55
 GAME_IMG_CENTER_X_RATIO = 0.5
-GAME_IMG_CENTER_Y_RATIO = 0.32
+GAME_IMG_CENTER_Y_RATIO = 0.37
 
-# 엔딩(종강/성적 화면)에서 에녹 사진 (엔딩용 이미지들 공통)
 ENDING_IMG_MAX_W_RATIO = 0.95
 ENDING_IMG_MAX_H_RATIO = 0.55
 ENDING_IMG_CENTER_X_RATIO = 0.5
-ENDING_IMG_CENTER_Y_RATIO = 0.32
+ENDING_IMG_CENTER_Y_RATIO = 0.37
 
 # -------------------------
 # ★ 체력 미니게임(달리기) 이미지 파일
@@ -167,7 +181,7 @@ quizzes = [
     ("파이썬 반복문은?",
      ["for문", "to문"], 0),
 
-    ("에녹이의 핸드폰이 아이폰 16프로 일 때 에녹이가 가장 좋아하는 음식은?",
+    ("에녹이가 핸드폰이 아이폰 16프로 일 때 에녹이가 가장 좋아하는 음식은?",
      ["브로콜리", "한우 안심"], 1),
 
     ("에녹이가 길 가다가 500원을 주웠다. 이 때 에녹이의 지갑에 5만원이 있었다면 에녹이의 키는?",
@@ -190,15 +204,8 @@ quizzes = [
 used_quiz_indices = set()
 
 # -------------------------
-# 폰트
+# 기본 폰트들 (한 번만 생성)
 # -------------------------
-def load_font(size):
-    try:
-        return pygame.font.Font(KOREAN_FONT_FILE, size)
-    except Exception as e:
-        print(f"[경고] 폰트 로드 실패: {KOREAN_FONT_FILE} -> {e}")
-        return pygame.font.Font(None, size)
-
 FONT = load_font(60)
 TUTORIAL_FONT = load_font(40)
 STORY_FONT = load_font(26)
@@ -249,13 +256,13 @@ background_evening = None
 background_quiz = None
 background_ending = None
 
-tutorial_img = None
 story_photo_imgs = []
 
 game_photo_default_img = None
 game_photo_success_img = None
 game_photo_fail_img = None
 sleeping_img = None
+sleep_prompt_img = None
 
 ending_base_img = None
 ending_A_default_img = None
@@ -493,9 +500,6 @@ def play_appearance_minigame():
     window = pygame.display.set_mode(prev_window_size, pygame.RESIZABLE)
     pygame.display.set_caption(prev_caption[0])
 
-    reload_assets_for_size(GAME_W, GAME_H)
-    update_button_positions(GAME_W, GAME_H)
-
     return game_result
 
 # -------------------------
@@ -513,15 +517,20 @@ def play_intelligence_quiz_minigame():
     pygame.display.set_caption("지능 미니게임 - 퀴즈")
 
     BG_COLOR = (30, 30, 30)
-    WHITE = (255, 255, 255)
+    WHITE = (0, 0, 0)  # 글씨 색: 검정색
+
     title_font = load_font(42)
     quiz_font = load_font(32)
     small_font = load_font(26)
 
-    # 아직 나오지 않은 퀴즈 인덱스만 사용
+    # 퀴즈 배경은 한 번만 스케일
+    quiz_bg_scaled = None
+    if background_quiz is not None:
+        quiz_bg_scaled = pygame.transform.smoothscale(background_quiz, (full_w, full_h))
+
+    # 아직 안 나온 퀴즈만 사용
     remaining_indices = [i for i in range(len(quizzes)) if i not in used_quiz_indices]
 
-    # 모든 퀴즈를 다 사용했다면, 안내만 보여 주고 종료
     if not remaining_indices:
         running = True
         while running:
@@ -532,9 +541,8 @@ def play_intelligence_quiz_minigame():
                 if event.type == pygame.KEYDOWN or (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1):
                     running = False
 
-            if background_quiz is not None:
-                bg = pygame.transform.scale(background_quiz, (full_w, full_h))
-                window.blit(bg, (0, 0))
+            if quiz_bg_scaled is not None:
+                window.blit(quiz_bg_scaled, (0, 0))
             else:
                 window.fill(BG_COLOR)
 
@@ -548,13 +556,8 @@ def play_intelligence_quiz_minigame():
 
         window = pygame.display.set_mode(prev_window_size, pygame.RESIZABLE)
         pygame.display.set_caption(prev_caption[0])
-
-        reload_assets_for_size(GAME_W, GAME_H)
-        update_button_positions(GAME_W, GAME_H)
-
         return None
 
-    # 아직 안 나온 퀴즈 중 하나 선택
     q_index = random.choice(remaining_indices)
     used_quiz_indices.add(q_index)
     question, options, answer = quizzes[q_index]
@@ -590,10 +593,8 @@ def play_intelligence_quiz_minigame():
                 else:
                     running = False
 
-        # 배경
-        if background_quiz is not None:
-            bg = pygame.transform.scale(background_quiz, (full_w, full_h))
-            window.blit(bg, (0, 0))
+        if quiz_bg_scaled is not None:
+            window.blit(quiz_bg_scaled, (0, 0))
         else:
             window.fill(BG_COLOR)
 
@@ -638,9 +639,6 @@ def play_intelligence_quiz_minigame():
     window = pygame.display.set_mode(prev_window_size, pygame.RESIZABLE)
     pygame.display.set_caption(prev_caption[0])
 
-    reload_assets_for_size(GAME_W, GAME_H)
-    update_button_positions(GAME_W, GAME_H)
-
     if result is True:
         return "success"
     elif result is False:
@@ -660,7 +658,7 @@ def play_fullness_minigame():
     info = pygame.display.Info()
     full_w, full_h = info.current_w, info.current_h
     window = pygame.display.set_mode((full_w, full_h))
-    pygame.display.set_caption("포만 미니게임 - 음식 받아먹기")
+    pygame.display.setCaption("포만 미니게임 - 음식 받아먹기") if hasattr(pygame.display, "setCaption") else pygame.display.set_caption("포만 미니게임 - 음식 받아먹기")
 
     SCREEN_W, SCREEN_H = full_w, full_h
     FPS_LOCAL = FPS
@@ -939,9 +937,6 @@ def play_fullness_minigame():
     window = pygame.display.set_mode(prev_window_size, pygame.RESIZABLE)
     pygame.display.set_caption(prev_caption[0])
 
-    reload_assets_for_size(GAME_W, GAME_H)
-    update_button_positions(GAME_W, GAME_H)
-
     return game_result
 
 # -------------------------
@@ -956,7 +951,7 @@ def play_health_run_minigame():
     info = pygame.display.Info()
     full_w, full_h = info.current_w, info.current_h
     window = pygame.display.set_mode((full_w, full_h))
-    pygame.display.setCaption = ("체력 미니게임 - 달리기")
+    pygame.display.set_caption("체력 미니게임 - 달리기")
 
     WHITE = (255, 255, 255)
     BLACK = (0, 0, 0)
@@ -967,11 +962,13 @@ def play_health_run_minigame():
     count_font = load_font(48)
     emoji_font = load_font(100)
     result_font = load_font(72)
+    tip_font = load_font(24)
 
     try:
         background_img = pygame.image.load(RUN_BG_FILE).convert()
+        run_bg_scaled = pygame.transform.smoothscale(background_img, (full_w, full_h))
     except Exception:
-        background_img = None
+        run_bg_scaled = None
 
     target_height = int(full_h * 0.4)
     player_img1 = None
@@ -995,7 +992,8 @@ def play_health_run_minigame():
 
     button_rect = pygame.Rect(0, 0, 380, 150)
     button_rect.center = (full_w // 2, full_h // 2 - 100)
- state = "ready"
+
+    state = "ready"
     click_count = 0
     game_duration = 15
     start_time = 0.0
@@ -1007,7 +1005,6 @@ def play_health_run_minigame():
     emoji_x = LEFT_MARGIN
     emoji_y = BOTTOM_Y
     use_first_image = True
-
     game_result = None
     running = True
     success_time = None
@@ -1056,9 +1053,8 @@ def play_health_run_minigame():
                     else:
                         running = False
 
-        if background_img:
-            bg_scaled = pygame.transform.scale(background_img, (full_w, full_h))
-            window.blit(bg_scaled, (0, 0))
+        if run_bg_scaled:
+            window.blit(run_bg_scaled, (0, 0))
         else:
             window.fill(WHITE)
 
@@ -1134,7 +1130,6 @@ def play_health_run_minigame():
                 emoji_rect = emoji_surface.get_rect(midbottom=(emoji_x, BOTTOM_Y))
                 window.blit(emoji_surface, emoji_rect.topleft)
 
-            tip_font = load_font(24)
             tip = tip_font.render("클릭하여 돌아가기", True, BLACK)
             tip_rect = tip.get_rect(center=(full_w // 2, full_h // 2 + 100))
             window.blit(tip, tip_rect)
@@ -1144,9 +1139,6 @@ def play_health_run_minigame():
 
     window = pygame.display.set_mode(prev_window_size, pygame.RESIZABLE)
     pygame.display.set_caption(prev_caption[0])
-
-    reload_assets_for_size(GAME_W, GAME_H)
-    update_button_positions(GAME_W, GAME_H)
 
     return game_result
 
@@ -1172,10 +1164,8 @@ sleep_button_rect = pygame.Rect(0, 0, 160, 60)
 # 엔딩 1페이지용 버튼 (엔딩 확인하기)
 ending_button_rect = pygame.Rect(0, 0, 220, 60)
 
-# -------------------------
-# 디버그 스킵 버튼 (엔딩 바로 가기) - 완성본에서는 비활성화
-# -------------------------
-DEBUG_SKIP_BUTTON = False  # 엔딩 바로가기 버튼 사용 안 함
+# 디버그 스킵 버튼 (완성본에서는 비활성화)
+DEBUG_SKIP_BUTTON = False
 debug_skip_button_rect = pygame.Rect(0, 0, 220, 40)
 
 # -------------------------
@@ -1188,8 +1178,8 @@ STORY_2 = 3
 STORY_3 = 4
 GAME_PLAY = 5
 SLEEP_PROMPT = 6
-ENDING_SCREEN = 7          # 엔딩 1페이지 (종강 + 엔딩 확인하기 버튼)
-ENDING_GRADE_SCREEN = 8    # 엔딩 2페이지 (성적/엔딩 종류 화면)
+ENDING_SCREEN = 7          # 엔딩 1페이지
+ENDING_GRADE_SCREEN = 8    # 엔딩 2페이지
 
 game_state = START_SCREEN
 
@@ -1231,8 +1221,10 @@ def draw_rounded_rect(surface, color, rect, radius):
 # 페이드 전환
 # -------------------------
 def fade_transition(draw_from_func, draw_to_func):
+    # 현재 화면 캡처
     draw_from_func()
     from_surf = screen.copy()
+    # 목표 화면 캡처
     draw_to_func()
     to_surf = screen.copy()
 
@@ -1263,7 +1255,7 @@ def draw_multiline_text(text, font, color, rect, line_gap=6):
         y += surf.get_height() + line_gap
 
 # -------------------------
-# 에녹이 본게임 이미지 선택 헬퍼
+# 에녹이 본게임 이미지 선택
 # -------------------------
 def get_main_enoch_image():
     if current_enoch_pose == "success" and game_photo_success_img is not None:
@@ -1281,8 +1273,8 @@ def reload_assets_for_size(w, h):
     global background_start, background_tutorial, background_game_default
     global background_morning, background_noon, background_evening
     global background_quiz, background_ending
-    global tutorial_img, story_photo_imgs
-    global game_photo_default_img, game_photo_success_img, game_photo_fail_img, sleeping_img
+    global story_photo_imgs
+    global game_photo_default_img, game_photo_success_img, game_photo_fail_img, sleeping_img, sleep_prompt_img
     global ending_base_img, ending_A_default_img, ending_A_health_img, ending_A_intel_img, ending_A_appear_img
     global ending_B_img, ending_F_default_img, ending_F_hunger_img
     global mini_icon_imgs
@@ -1298,8 +1290,6 @@ def reload_assets_for_size(w, h):
     background_quiz   = load_and_scale(QUIZ_BG_FILE, (w, h))
     background_ending = load_and_scale(ENDING_BG_FILE, (w, h))
 
-    tutorial_img = load_and_scale(TUTORIAL_IMG_FILE, (int(w * 0.8), int(h * 0.6)))
-
     story_photo_imgs.clear()
     max_story_w = int(w * STORY_IMG_MAX_W_RATIO)
     max_story_h = int(h * STORY_IMG_MAX_H_RATIO)
@@ -1314,6 +1304,19 @@ def reload_assets_for_size(w, h):
     game_photo_fail_img    = load_keep_aspect(GAME_PHOTO_FAIL_FILE,    (max_game_w, max_game_h))
 
     sleeping_img = load_keep_aspect(SLEEP_PHOTO_FILE, (max_game_w, max_game_h))
+
+    # 취침하기 버튼 화면 전용 에녹이
+    try:
+        img = pygame.image.load(SLEEP_PROMPT_PHOTO_FILE).convert_alpha()
+        w0, h0 = img.get_size()
+        if w0 == 0 or h0 == 0:
+            raise ValueError("image has zero size")
+        scale0 = min(max_game_w / w0, max_game_h / h0)
+        nw0, nh0 = int(w0 * scale0), int(h0 * scale0)
+        sleep_prompt_img = pygame.transform.smoothscale(img, (nw0, nh0))
+    except Exception as e:
+        print(f"[경고] 이미지 로드 실패: {SLEEP_PROMPT_PHOTO_FILE} -> {e}")
+        sleep_prompt_img = None
 
     max_end_w = int(w * ENDING_IMG_MAX_W_RATIO)
     max_end_h = int(h * ENDING_IMG_MAX_H_RATIO)
@@ -1545,7 +1548,6 @@ def draw_game_play():
     stats_text = DAY_FONT.render("스탯", True, (255, 255, 255))
     screen.blit(stats_text, stats_text.get_rect(center=stats_button_rect.center))
 
-    # 날짜 박스: "D-숫자"만 표시
     draw_rounded_rect(screen, (0, 0, 0, 150), days_box_rect, 10)
     pygame.draw.rect(screen, (255, 255, 255), days_box_rect, 2, border_radius=10)
     value = DAY_FONT.render(f"D-{days_left}", True, (255, 255, 255))
@@ -1599,12 +1601,12 @@ def draw_game_play():
         draw_stats_panel()
 
 # -------------------------
-# 밤 화면 (취침)
+# 밤 화면 (취침하기 버튼)
 # -------------------------
 def draw_sleep_prompt():
     screen.fill((0, 0, 0))
 
-    img = get_main_enoch_image()
+    img = sleep_prompt_img or get_main_enoch_image()
     if img is not None:
         cx = int(GAME_W * GAME_IMG_CENTER_X_RATIO)
         cy = int(GAME_H * GAME_IMG_CENTER_Y_RATIO)
@@ -1654,7 +1656,6 @@ def draw_ending_screen():
     ending_text = "5일이 지나고\n종강했다."
     draw_multiline_text(ending_text, STORY_FONT, (20, 20, 20), bubble_rect)
 
-    # 버튼을 말풍선 밑 정 가운데로
     ending_button_rect.centerx = GAME_W // 2
     ending_button_rect.top = bubble_rect.bottom + 10
 
@@ -1680,7 +1681,6 @@ def draw_ending_grade_screen():
     total = health + intel + appear + full
     max_total = 60  # 15번 행동 × 최대 4점
 
-    # 54~60  → A, 44~53 → B, 그 외 → F
     if total >= 54:
         grade = "A"
     elif total >= 44:
@@ -1693,7 +1693,6 @@ def draw_ending_grade_screen():
     comment = ""
 
     if grade == "A":
-        # 체력/지능/외모 중 30 이상이면서 가장 높은 스탯 기준
         best_stat = None
         best_value = -1
         for name, value in [("체력", health), ("지능", intel), ("외모", appear)]:
@@ -1724,7 +1723,6 @@ def draw_ending_grade_screen():
         comment = "아쉽지만 나쁘지 않네\n다음 학기에는 조금만 더 힘내보자!"
 
     else:  # F
-        # 포만이 가장 높으면 F-허기(밥만 먹은) 엔딩
         if full >= health and full >= intel and full >= appear:
             ending_type = "F-허기 엔딩"
             img = ending_F_hunger_img or ending_F_default_img or ending_base_img
@@ -1751,7 +1749,6 @@ def draw_ending_grade_screen():
     draw_rounded_rect(screen, (180, 180, 180, 235), bubble_rect, 18)
     pygame.draw.rect(screen, (120, 120, 120), bubble_rect, 2, border_radius=18)
 
-    # 엔딩 대화창에는 성적 + 대사만
     grade_text = (
         f"에녹이의 성적: {grade}\n\n"
         f"{comment}"
@@ -1801,6 +1798,7 @@ while running:
         if event.type == pygame.VIDEORESIZE:
             window = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
 
+        # 미니게임 버튼 위 hover → 기본 에녹이로 되돌리기
         if event.type == pygame.MOUSEMOTION and game_state == GAME_PLAY:
             pos = window_to_game(event.pos)
             mini_hover_index = None
@@ -1810,6 +1808,10 @@ while running:
                     for idx, btn in enumerate(mini_buttons):
                         if btn["rect"].collidepoint(mx, my):
                             mini_hover_index = idx
+
+                            if current_enoch_pose in ("success", "fail"):
+                                current_enoch_pose = "default"
+
                             if idx == 0:
                                 speech_text = "날씨도 좋은데 \n우사인볼트 이겨봐?"
                             elif idx == 1:
@@ -1856,7 +1858,6 @@ while running:
                     fade_transition(draw_start_screen, draw_tutorial_screen)
                     game_state = TUTORIAL_SCREEN
 
-                # DEBUG_SKIP_BUTTON이 False라서 여기는 실행 안 됨
                 elif DEBUG_SKIP_BUTTON and debug_skip_button_rect.collidepoint(mx, my):
                     game_state = ENDING_SCREEN
 
